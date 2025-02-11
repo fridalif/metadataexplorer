@@ -125,7 +125,7 @@ int readMetadata(char* filename){
     char headerBytes[4] = {0};
     fread(&headerBytes, 4, 1, fp_in);
     if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
-        printf("File Type: PNG \n");
+        printf("Тип файла: PNG \n");
         readMetadataPNG(fp_in);
         return 0;
     }
@@ -400,6 +400,10 @@ int writeHelpMessage(char* execName) {
 	printf("Использование: %s {--update, --add, --delete, --read, --help} [{Опции}]\n", execName);
 	printf("Опции: \n");
 	printf("--filename <имя_файла> - Название файла с которым будет проводиться работа \n");
+        printf("{--atime, --ctime, --mtime} ГГГГ-ММ-ДД ЧЧ:мм:сс - Изменение системных меток(если нет флага оставляет прошлые)\n");
+        printf("\t atime -Дата последнего доступа \n");
+        printf("\t ctime -Дата изменения метаданных \n");
+        printf("\t ctime -Дата последнего изменения \n");
 	printf("--header <Заголовок> - Заголовок метаданных при изменении, удалении и добавлении \n");
 	printf("--data <Данные> - Метаданные, которые будут добавлены или на которые будет произведена подмена\n");
 	return 1;
