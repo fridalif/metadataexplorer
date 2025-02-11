@@ -10,6 +10,34 @@
 
 */
 
+int writeHelpMessage(char* execName) {
+	printf("Использование: %s {--update, --add, --delete, --read, --help} [{Опции}]\n", execName);
+	printf("Опции: \n");
+	printf("--filename <имя_файла> - Название файла с которым будет проводиться работа \n");
+        printf("{--atime, --ctime, --mtime} ГГГГ-ММ-ДД ЧЧ:мм:сс - Изменение системных меток(если нет флага оставляет прошлые)\n");
+        printf("\t atime - Дата последнего доступа \n");
+        printf("\t ctime - Дата изменения метаданных \n");
+        printf("\t mtime - Дата последнего изменения \n");
+	printf("--header <Заголовок> - Заголовок метаданных при изменении, удалении и добавлении \n");
+	printf("--data <Данные> - Метаданные, которые будут добавлены или на которые будет произведена подмена\n");
+	return 1;
+}
+
+
+int getSystemMarks(int argc, char** argv, char* flag, char* buffer) {
+        for (int i = 2; i < argc; i++ ) {
+                if (strcmp(argv[i],flag) == 0) {
+                        if (argc <= i+2 || strcmp(argv[i+1],"") == 0 || strcmp(argv[i+2],"") == 0) {
+                                printf("Ошибка: Не указано значение метаданных \n");
+                                writeHelpMessage(argv[0]);
+                                return 1;
+                        }
+                        snprintf(buffer, sizeof(buffer), "%s %s", argv[i + 1], argv[i + 2]);
+                        return 0;               
+                }
+        }
+        return 1;
+}
 
 unsigned int crc32b(unsigned char *message, int len) {
    int i, j;
@@ -86,10 +114,16 @@ int readMetadataPNG(FILE* fp_in) {
     return 0;
 }
 
-int readMetadata(char* filename){
+int readMetadata(char* filename, int argc, char** argv){
     printf("Системная информация о файле\n");
     printf("----------------------------\n");
     struct stat fileInfo;
+    char atimeBufferInput[20];
+    char ctimeBufferInput[20];
+    char mtimeBufferInput[20];
+    int changeAtime = getSystemMarks(argc, argv, "--atime",atimeBufferInput);
+    int changeCtime = getSystemMarks(argc, argv, "--ctime",ctimeBufferInput);
+    int changeMtime = getSystemMarks(argc, argv, "--mtime",mtimeBufferInput);
     if (stat(filename, &fileInfo) == 0) {
         printf("Размер: %ld Байт\n", fileInfo.st_size);
         
@@ -225,7 +259,7 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
 	return 0;
 }
 
-int deleteMetadata(char* filename, char* header) {
+int deleteMetadata(char* filename, char* header, int argc, char** argv) {
         printf("deleteMetadata %s %s\n",filename, header);
         FILE* fp_in = fopen(filename, "rb");
         if (!fp_in) {
@@ -344,7 +378,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename) {
         return 0;
 }
 
-int addMetadata(char* filename, char* header, char* data) {
+int addMetadata(char* filename, char* header, char* data, int argc, char** argv) {
         FILE* fp_in = fopen(filename, "rb");
         if (!fp_in) {
                 printf("Ошибка открытия файла\n");
@@ -353,7 +387,7 @@ int addMetadata(char* filename, char* header, char* data) {
         char headerBytes[4] = {0};
         fread(&headerBytes, 4, 1, fp_in);
         if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
-                printf("File Type: PNG \n");
+                printf("Тип файла: PNG \n");
                 int result = addMetadataPNG(fp_in, header, data, filename);
                 fclose(fp_in);
                 return result;
@@ -372,7 +406,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data){
         return 0;
 }
 
-int updateMetadata(char* filename, char* header, char* data) {
+int updateMetadata(char* filename, char* header, char* data, int argc, char** argv) {
         printf("updateMetadata %s %s %s\n", filename, header, data);
         FILE* fp_in = fopen(filename, "rb");
         if (!fp_in) {
@@ -396,18 +430,6 @@ int updateMetadata(char* filename, char* header, char* data) {
 	МОДУЛЬ ОБРАБОТКИ ВВОДА
 
 */
-int writeHelpMessage(char* execName) {
-	printf("Использование: %s {--update, --add, --delete, --read, --help} [{Опции}]\n", execName);
-	printf("Опции: \n");
-	printf("--filename <имя_файла> - Название файла с которым будет проводиться работа \n");
-        printf("{--atime, --ctime, --mtime} ГГГГ-ММ-ДД ЧЧ:мм:сс - Изменение системных меток(если нет флага оставляет прошлые)\n");
-        printf("\t atime - Дата последнего доступа \n");
-        printf("\t ctime - Дата изменения метаданных \n");
-        printf("\t ctime - Дата последнего изменения \n");
-	printf("--header <Заголовок> - Заголовок метаданных при изменении, удалении и добавлении \n");
-	printf("--data <Данные> - Метаданные, которые будут добавлены или на которые будет произведена подмена\n");
-	return 1;
-}
 
 char* getFileName(int argc, char** argv) {
 	for (int i = 2; i < argc; i++ ) {
@@ -458,6 +480,7 @@ char* getData(int argc, char** argv) {
 }
 
 
+
 int main(int argc, char** argv) {
 	if (argc < 3 ){
 		writeHelpMessage(argv[0]);
@@ -472,7 +495,7 @@ int main(int argc, char** argv) {
 		if (filename == NULL){
 			return 1;
 		}
-		readMetadata(filename);
+		readMetadata(filename, argc, argv);
                 return 0;
         }
         if (strcmp(argv[1],"--update") == 0) {
@@ -488,7 +511,7 @@ int main(int argc, char** argv) {
 		if (data == NULL){
                         return 1;
                 }
-		updateMetadata(filename, header, data);
+		updateMetadata(filename, header, data, argc, argv);
                 return 0;
         }
         if (strcmp(argv[1],"--add") == 0) {
@@ -504,7 +527,7 @@ int main(int argc, char** argv) {
                 if (data == NULL){
                         return 1;
                 }
-		addMetadata(filename, header, data);
+		addMetadata(filename, header, data, argc, argv);
                 return 0;
         }
         if (strcmp(argv[1],"--delete") == 0) {
@@ -516,7 +539,7 @@ int main(int argc, char** argv) {
 		if (header == NULL){
 			return 1;
 		}
-		deleteMetadata(filename, header);
+		deleteMetadata(filename, header, argc, argv);
 		return 0;
         }
 	writeHelpMessage(argv[0]);
