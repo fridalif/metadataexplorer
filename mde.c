@@ -126,25 +126,38 @@ int readMetadata(char* filename, int argc, char** argv){
     int changeMtime = getSystemMarks(argc, argv, "--mtime",mtimeBufferInput);
     if (stat(filename, &fileInfo) == 0) {
         printf("Размер: %ld Байт\n", fileInfo.st_size);
+        char* absolutePath = realpath(filename, NULL);
+        if (absolutePath != NULL) {
+            printf("Местоположение: %s\n", absolutePath);
+        }
         
-        char buffer[80];
+        char buffer[20];
 
         time_t mtime = fileInfo.st_mtime;
         struct tm *tm_info_m = localtime(&mtime);
         strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_m);
         
         printf("Дата изменения: %s\n", buffer);
-
+        if (changeMtime != 0) {
+            strcpy(mtimeBufferInput, buffer);
+        }
         time_t atime = fileInfo.st_atime;
         struct tm *tm_info_a = localtime(&atime);
         strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_a);
 
         printf("Дата последнего доступа: %s\n", buffer);
+        if (changeAtime != 0) {
+            strcpy(atimeBufferInput, buffer);
+        }
 
         time_t ctime = fileInfo.st_ctime;
         struct tm *tm_info_c = localtime(&ctime);
         strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_c);
+        
         printf("Дата изменения метаданных: %s\n", buffer);
+        if (changeCtime != 0) {
+            strcpy(ctimeBufferInput, buffer);
+        }
 
         printf("Права доступа: %o\n", fileInfo.st_mode & 0777);
     } else {
