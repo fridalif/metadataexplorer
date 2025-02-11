@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-
+#include <sys/stat.h>
+#include <time.h>
 
 /*
 
@@ -87,10 +87,40 @@ int readMetadataPNG(FILE* fp_in) {
 }
 
 int readMetadata(char* filename){
+    printf("Системная информация о файле\n");
+    printf("----------------------------\n");
+    struct stat fileInfo;
+    if (stat(filename, &fileInfo) == 0) {
+        printf("Размер: %ld Байт\n", fileInfo.st_size);
+        
+        char buffer[80];
+
+        time_t mtime = fileInfo.st_mtime;
+        struct tm *tm_info_m = localtime(&mtime);
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_m);
+        
+        printf("Дата изменения: %s\n", buffer);
+
+        time_t atime = fileInfo.st_atime;
+        struct tm *tm_info_a = localtime(&atime);
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_a);
+
+        printf("Дата последнего доступа: %s\n", buffer);
+
+        time_t ctime = fileInfo.st_ctime;
+        struct tm *tm_info_c = localtime(&ctime);
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_c);
+        printf("Дата изменения метаданных: %s\n", buffer);
+
+        printf("Права доступа: %o\n", fileInfo.st_mode & 0777);
+    } else {
+        printf("Не удалось получить системную информацию.\n");
+    }
+    printf("\n");
     FILE* fp_in = fopen(filename,"rb");
     if (!fp_in) {
-                printf("Ошибка открытия файла\n");
-                return 1;
+        printf("Ошибка открытия файла\n");
+        return 1;
     }
     char headerBytes[4] = {0};
     fread(&headerBytes, 4, 1, fp_in);
