@@ -1,8 +1,11 @@
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <time.h>
+#include <string.h>
 
 /*
 
@@ -27,12 +30,13 @@ int writeHelpMessage(char* execName) {
 int getSystemMarks(int argc, char** argv, char* flag, char* buffer) {
         for (int i = 2; i < argc; i++ ) {
                 if (strcmp(argv[i],flag) == 0) {
+                        
                         if (argc <= i+2 || strcmp(argv[i+1],"") == 0 || strcmp(argv[i+2],"") == 0) {
                                 printf("Ошибка: Не указано значение метаданных \n");
                                 writeHelpMessage(argv[0]);
                                 return 1;
                         }
-                        snprintf(buffer, sizeof(buffer), "%s %s", argv[i + 1], argv[i + 2]);
+                        snprintf(buffer, 19, "%s %s", argv[i + 1], argv[i + 2]);
                         return 0;               
                 }
         }
@@ -129,6 +133,7 @@ int readMetadata(char* filename, int argc, char** argv){
         char* absolutePath = realpath(filename, NULL);
         if (absolutePath != NULL) {
             printf("Местоположение: %s\n", absolutePath);
+            free(absolutePath);
         }
         
         char buffer[20];
@@ -174,9 +179,44 @@ int readMetadata(char* filename, int argc, char** argv){
     if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
         printf("Тип файла: PNG \n");
         readMetadataPNG(fp_in);
-        return 0;
     }
     fclose(fp_in);
+    
+    struct timespec new_times[2];
+    struct timespec current_time;
+    if (clock_gettime(CLOCK_REALTIME, &current_time)) {
+        printf("Ошибка при получении текущего системного времени");
+        return 1;
+    }
+    
+    struct tm tm_atime = {0}, tm_ctime = {0}, tm_mtime = {0};
+    strptime(atimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_atime);
+    strptime(ctimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_ctime);
+    strptime(mtimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_mtime);
+
+
+    struct timespec new_system_time;
+    new_system_time.tv_sec = mktime(&tm_ctime);
+    new_system_time.tv_nsec = 0;
+    if (clock_settime(CLOCK_REALTIME, &new_system_time)) {
+        perror("Ошибка при установке системного времени");
+        return 1;
+    }
+    
+    new_times[0].tv_sec = mktime(&tm_atime); 
+    new_times[1].tv_sec = mktime(&tm_mtime);  
+    
+    if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
+        printf("Ошибка при изменении временных меток файла");
+        return 1;
+    }
+    printf("Временные метки файла успешно изменены.\n");
+    
+    if (clock_settime(CLOCK_REALTIME, &current_time)) {
+        perror("Ошибка при восстановлении системного времени");
+        return 1;
+    }
+
     return 0;
 }
 
