@@ -155,10 +155,68 @@ int readMetadataPNG(FILE* fp_in) {
                                 break;
                         default:
                                printf("Цветовой тип: Неизвестно\n"); 
+                               break;
 
                 }
 
-                
+
+                unsigned char compressionType = 0;
+                fread(&compressionType, 1 ,1, fp_in);
+                switch (compressionType) {
+                        case 0x00:
+                                printf("Тип сжатия: Deflate самый быстрый\n");
+                                break;
+                        case 0x01:
+                                printf("Тип сжатия: Deflate быстрый\n");
+                                break;
+                        case 0x02:
+                                printf("Тип сжатия: Deflate по умолчанию\n");
+                                break;
+                        case 0x03:
+                                printf("Тип сжатия: Deflate максимальное сжатие\n");
+                                break;
+                        default:
+                               printf("Тип сжатия: Неизвестно\n"); 
+                               break;
+                }
+
+                unsigned char filterMethod = 0;
+                fread(&filterMethod, 1 ,1, fp_in);
+                switch (filterMethod) {
+                        case 0x00:
+                                printf("Метод фильрации: Нет\n");
+                                break;
+                        case 0x01:
+                                printf("Метод фильрации: Вычитание левого(Sub)\n");
+                                break;
+                        case 0x02:
+                                printf("Метод фильрации: Вычитание верхнего(Up)\n");
+                                break;
+                        case 0x03:
+                                printf("Метод фильрации: Вычитание среднего(Average)\n");
+                                break;
+                        case 0x04:
+                                printf("Метод фильрации: алгоритм Paeth\n");
+                                break;
+                        default:
+                               printf("Метод фильтрации: Неизвестно\n"); 
+                               break;
+                }
+
+                unsigned char interlace = 0;
+                fread(&interlace, 1 ,1, fp_in);
+                switch (interlace) {
+                        case 0x00:
+                                printf("Interlace: Нет\n");
+                                break;
+                        case 0x01:
+                                printf("Interlace: Adam7\n");
+                                break;
+                        default:
+                               printf("Interlace: Неизвестно\n"); 
+                               break;
+                }
+
             }
 	    fseek(fp_in, -3, SEEK_CUR);
 	}
