@@ -111,6 +111,23 @@ int readMetadataPNG(FILE* fp_in) {
             if (bytes[0]==0x44 || bytes[1]==0x41 || bytes[2] == 0x54){
 		break;
             }
+            if (bytes[0] == 0x48 && bytes[1] == 0x44 && bytes[2] == 0x52){
+                unsigned char widthBytes[4] = {0};
+                fread(&widthBytes, 4 ,1, fp_in);
+                u_int32_t width = (u_int32_t)((widthBytes[0] << 24) |
+                                 (widthBytes[1] << 16) |
+                                 (widthBytes[2] << 8)  |
+                                 (widthBytes[3]));
+                printf("Ширина изображения: %u\n",width);
+                unsigned char heightBytes[4] = {0};
+                fread(&heightBytes, 4 ,1, fp_in);
+                u_int32_t height = (u_int32_t)((heightBytes[0] << 24) |
+                                 (heightBytes[1] << 16) |
+                                 (heightBytes[2] << 8)  |
+                                 (heightBytes[3]));
+                
+                printf("Высота изображения: %u\n",height);
+            }
 	    fseek(fp_in, -3, SEEK_CUR);
 	}
 	lastByte = currentByte;
