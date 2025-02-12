@@ -21,9 +21,40 @@ int writeHelpMessage(char* execName) {
         printf("\t atime - Дата последнего доступа \n");
         printf("\t ctime - Дата изменения метаданных \n");
         printf("\t mtime - Дата последнего изменения \n");
-	printf("--header <Заголовок> - Заголовок метаданных при изменении, удалении и добавлении \n");
-	printf("--data <Данные> - Метаданные, которые будут добавлены или на которые будет произведена подмена\n");
-	return 1;
+	printf("--header <Заголовок> - Заголовок метаданных (комментария) при изменении, удалении и добавлении \n");
+	printf("--data <Данные> - Метаданные (комментарий), которые будут добавлены или на которые будет произведена подмена\n");
+        printf("\nPNG\n");
+        printf("\t--width <Пиксели> - Ширина в пикселях\n");
+        printf("\t--height <Пиксели> - Высота в пикселях\n");
+        printf("\t--horizontal <Число> - Горизонтальное разрешение\n");
+        printf("\t--vertical <Число> - Вертикальное разрешение\n");
+        printf("\t--measure {0,1} - Единица измерения разрешения, 0 - соотношение сторон, 1 - метры\n");
+        printf("\t--interlace {0,1} - Разрвёртка, 0 - нет, 1 - Adam7\n");
+        printf("\t--compression {0,1,2,3} - Cжатие\n");
+        printf("\t\t 0 - Deflate самый быстрый\n");
+        printf("\t\t 1 - Deflate быстрый\n");
+        printf("\t\t 2 - Deflate по умолчанию\n");
+        printf("\t\t 3 - Deflate максимальное сжатие\n");
+        printf("\t--filter {0,1,2,3,4} - Метод фильтрации\n");
+        printf("\t\t 0 - Нет\n");
+        printf("\t\t 1 - Вычитание левого(Sub)\n");
+        printf("\t\t 2 - Вычитание верхнего(Up)\n");
+        printf("\t\t 3 - Вычитание среднего(Average)\n");
+        printf("\t\t 4 - Алгоритм Paeth\n");
+        printf("\t--colorType {0,2,3,4,6} - Цветовой тип\n");
+        printf("\t\t 0 - Оттенки серого\n");
+        printf("\t\t 2 - RGB\n");
+        printf("\t\t 3 - Палитровые цвета\n");
+        printf("\t\t 4 - Оттенки серого с альфа-каналом\n");
+        printf("\t\t 6 - RGB с альфа-каналом\n");
+        printf("\t--depth {0-15} - Глубина цвета\n");
+        printf("\nJPEG\n");
+        printf("\tВ разработке\n");
+        printf("\nGIF\n");
+        printf("\tВ разработке\n");
+        printf("\nTIF\n");
+        printf("\tВ разработке\n");
+        return 1;
 }
 
 
@@ -138,14 +169,11 @@ int readMetadataPNG(FILE* fp_in) {
                         case 0x00:
                                 printf("Цветовой тип: Оттенки серого\n");
                                 break;
-                        case 0x01:
+                        case 0x02:
                                 printf("Цветовой тип: RGB\n");
                                 break;
-                        case 0x02:
-                                printf("Цветовой тип: Палитровые цвета\n");
-                                break;
                         case 0x03:
-                                printf("Цветовой тип: Оттенки серого с альфа-каналом\n");
+                                printf("Цветовой тип: Палитровые цвета\n");
                                 break;
                         case 0x04:
                                 printf("Цветовой тип: Оттенки серого с альфа-каналом\n");
