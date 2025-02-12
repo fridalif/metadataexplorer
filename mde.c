@@ -216,10 +216,45 @@ int readMetadataPNG(FILE* fp_in) {
                                printf("Interlace: Неизвестно\n"); 
                                break;
                 }
-
+                continue;
             }
 	    fseek(fp_in, -3, SEEK_CUR);
-	}
+	} else if (currentByte == 0x70) {
+            char bytes[3] = {0};
+	    fread(&bytes, 3 ,1, fp_in);
+            if (bytes[0]==0x48 || bytes[1]==59 || bytes[2] == 0x73){
+                unsigned char horizontalBytes[4] = {0};
+                fread(&horizontalBytes, 4 ,1, fp_in);
+                u_int32_t horizontal = (u_int32_t)((horizontalBytes[0] << 24) |
+                                 (horizontalBytes[1] << 16) |
+                                 (horizontalBytes[2] << 8)  |
+                                 (horizontalBytes[3]));
+                printf("Горизонтальное разрешение: %u\n",horizontal);
+                unsigned char verticalBytes[4] = {0};
+                fread(&verticalBytes, 4 ,1, fp_in);
+                u_int32_t vertical = (u_int32_t)((verticalBytes[0] << 24) |
+                                 (verticalBytes[1] << 16) |
+                                 (verticalBytes[2] << 8)  |
+                                 (verticalBytes[3]));
+                printf("Вертикальное разрешение: %u\n",vertical);
+                unsigned char measure = 0;
+                fread(&measure, 1 ,1, fp_in);
+
+                switch (measure){
+                        case 0:
+                                printf("Единицы измерения: Не указано(предположительно соотношение сторон)\n");
+                                break;
+                        case 1:
+                                printf("Единицы измерения: Метры\n");
+                                break;
+                        default:
+                                printf("Единицы измерения: Неизвестно\n");
+                                break;
+                }
+                continue;
+            }
+            fseek(fp_in, -3, SEEK_CUR);
+        }
 	lastByte = currentByte;
     }
     return 0;
