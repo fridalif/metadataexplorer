@@ -177,7 +177,10 @@ int readMetadata(char* filename, int argc, char** argv){
     char headerBytes[4] = {0};
     fread(&headerBytes, 4, 1, fp_in);
     if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
+        printf("\nВнутренние данные файла\n");
+        printf("-----------------------\n");
         printf("Тип файла: PNG \n");
+        printf("MIME Тип: image/png\n");
         readMetadataPNG(fp_in);
     }
     fclose(fp_in);
@@ -185,7 +188,7 @@ int readMetadata(char* filename, int argc, char** argv){
     struct timespec new_times[2];
     struct timespec current_time;
     if (clock_gettime(CLOCK_REALTIME, &current_time)) {
-        printf("Ошибка при получении текущего системного времени");
+        printf("\nОшибка при получении текущего системного времени\n");
         return 1;
     }
     
@@ -199,7 +202,7 @@ int readMetadata(char* filename, int argc, char** argv){
     new_system_time.tv_sec = mktime(&tm_ctime);
     new_system_time.tv_nsec = 0;
     if (clock_settime(CLOCK_REALTIME, &new_system_time)) {
-        perror("Ошибка при установке системного времени");
+        perror("\nОшибка при установке системного времени\n");
         return 1;
     }
     
@@ -207,10 +210,10 @@ int readMetadata(char* filename, int argc, char** argv){
     new_times[1].tv_sec = mktime(&tm_mtime);  
     
     if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
-        printf("Ошибка при изменении временных меток файла");
+        printf("\nОшибка при изменении временных меток файла\n");
         return 1;
     }
-    printf("Временные метки файла успешно изменены.\n");
+    printf("\nВременные метки файла успешно изменены.\n");
     
     if (clock_settime(CLOCK_REALTIME, &current_time)) {
         perror("Ошибка при восстановлении системного времени");
