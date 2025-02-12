@@ -127,6 +127,38 @@ int readMetadataPNG(FILE* fp_in) {
                                  (heightBytes[3]));
                 
                 printf("Высота изображения: %u\n",height);
+                unsigned char depth = 0;
+                fread(&depth, 1 ,1, fp_in);
+                u_int8_t dephtInt = (u_int8_t)(depth);
+                printf("Глубина цвета: %u\n",dephtInt);
+
+                unsigned char colorType = 0;
+                fread(&colorType, 1 ,1, fp_in);
+                switch (colorType) {
+                        case 0x00:
+                                printf("Цветовой тип: Оттенки серого\n");
+                                break;
+                        case 0x01:
+                                printf("Цветовой тип: RGB\n");
+                                break;
+                        case 0x02:
+                                printf("Цветовой тип: Палитровые цвета\n");
+                                break;
+                        case 0x03:
+                                printf("Цветовой тип: Оттенки серого с альфа-каналом\n");
+                                break;
+                        case 0x04:
+                                printf("Цветовой тип: Оттенки серого с альфа-каналом\n");
+                                break;
+                        case 0x06:
+                                printf("Цветовой тип: RGB с альфа-каналом\n");
+                                break;
+                        default:
+                               printf("Цветовой тип: Неизвестно\n"); 
+
+                }
+
+                
             }
 	    fseek(fp_in, -3, SEEK_CUR);
 	}
