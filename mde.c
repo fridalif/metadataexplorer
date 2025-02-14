@@ -691,7 +691,6 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         newHeader[1] = 0x48;
         newHeader[2] = 0x44;
         newHeader[3] = 0x52;
-        unsigned char newCRC32IHDR[4] = {0};
         if (!widthChanged && !heightChanged && !depthChanged && !colorTypeChanged && !compressionChanged && !filterChanged && !interlaceChanged){
                 printf("Итог изменения заголовка: Нечего изменять\n\n");
         }
@@ -742,6 +741,16 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         } else {
                 newHeader[16] = oldHeader[12];
         }
+
+        unsigned int newCRC32 = crc32b(newHeader, 17);
+        unsigned char newCRC32CharIHDR[4] = {0};
+        newCRC32CharIHDR[0] = (newCRC32 >> 24) & 0xFF; 
+        newCRC32CharIHDR[1] = (newCRC32 >> 16) & 0xFF; 
+        newCRC32CharIHDR[2] = (newCRC32 >> 8)  & 0xFF; 
+        newCRC32CharIHDR[3] = newCRC32 & 0xFF;
+
+
+
         int horizontalResolution = getArgumentSize(argc, argv, "--horizontal");
         int verticalResolution = getArgumentSize(argc, argv, "--vertical");
         int measure = getArgumentSize(argc,argv,"--measure");
