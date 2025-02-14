@@ -102,8 +102,6 @@ unsigned int crc32b(unsigned char *message, int len) {
 */
 
 
-
-
 int readMetadataPNG(FILE* fp_in) {
     char lastByte;
     char currentByte;
