@@ -506,103 +506,262 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
 	МОДУЛЬ ДОБАВЛЕНИЯ
 
 */
-int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename) {
-	int headerLen = strlen(header);
-        int dataLen = strlen(data);
+//int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename) {
+//	int headerLen = strlen(header);
+//        int dataLen = strlen(data);
+//
+//        //+1 потому что между заголовком и данными 0x00
+//        u_int16_t resultLen = headerLen + dataLen + 1;
+//        char byte1 = (resultLen >> 8);
+//        char byte2 = resultLen & 0xFF;
+//
+//        printf("%x %x", byte1, byte2);
+//        //+6 потому что и 2 байт - длина, и tEXt
+//        int writeLen = (6+resultLen);
+//        char* bytesArray = (char*)malloc(writeLen*sizeof(char));
+//        bytesArray[0] = (char)byte1;
+//        bytesArray[1] = (char)byte2;
+//        bytesArray[2] = 't';
+//        bytesArray[3] = 'E';
+//        bytesArray[4] = 'X';
+//        bytesArray[5] = 't';
+//        for (int i = 0; i < headerLen; i++){
+//                bytesArray[i+6] = header[i];
+//        }
+//        bytesArray[headerLen+6] = 0x00;
+//        for (int i = 0; i < dataLen; i++){
+//                bytesArray[headerLen+7+i] = data[i];
+//        }
+//        int position = 0;
+//        while (fp_in){
+//                char currentByte;
+//                fread(&currentByte,1,1,fp_in);
+//                if (currentByte == 0x49){
+//                        char bytes[3] = {0};
+//                        fread(&bytes, 3 ,1, fp_in);
+//                        if (bytes[0]==0x44 || bytes[1]==0x41 || bytes[2] == 0x54){
+//                                break;
+//                        }
+//                        fseek(fp_in, -3, SEEK_CUR);
+//                }
+//                position++;
+//        }
+//        if (!fp_in){
+//                printf("В картинке не найдено поле IDAT. Невозможно добавить метаданные.");
+//                return 1;
+//        }
+//        fseek(fp_in, 0L, SEEK_SET);
+//        char* newFilename = malloc(strlen(filename) + 6);
+//        snprintf(newFilename, strlen(filename) + 6, "%s_copy", filename);
+//        FILE* fp_out = fopen(newFilename, "wb");
+//        free(newFilename);
+//        if (!fp_out) {
+//                printf("Ошибка открытия файла\n");
+//                return 1;
+//        }
+//        while (fp_in) {
+//                if (position == 0){
+//                        char endChank[2] = {0x00,0x00};
+//                        fwrite(&endChank,2,1,fp_out);
+//                        for (int i = 0; i< writeLen; i++){
+//                                fwrite(bytesArray+i,1,1,fp_out);
+//                        }
+//                        int result = crc32b(bytesArray+2,writeLen-2);
+//                        unsigned char crc32Bytes[4];
+//                        crc32Bytes[0] = (unsigned char)((result >> 24) & 0xFF);
+//                        crc32Bytes[1] = (unsigned char)((result >> 16) & 0xFF);
+//                        crc32Bytes[2] = (unsigned char)((result >> 8) & 0xFF);
+//                        crc32Bytes[3] = (unsigned char)(result & 0xFF);
+//                        fwrite(&crc32Bytes,4,1,fp_out);
+//                        printf("%02x %02x %02x %02x\n",crc32Bytes[0],crc32Bytes[1],crc32Bytes[2],crc32Bytes[3]);
+//                        
+//                }
+//                if (position!=0){
+//                        char srcByte;
+//                        fread(&srcByte,1,1,fp_in);
+//                        if (srcByte == 0x49){
+//	                        char bytes[3] = {0};
+//	                        fread(&bytes, 3 ,1, fp_in);
+//                                if (bytes[0]==0x45 || bytes[1]==0x4e || bytes[2] == 0x44){
+//		                        char iendTag[4] = {'I','E','N','D'};
+//                                        char crc[4] ={0};
+//                                        fread(&crc,4,1,fp_in);
+//                                        fwrite(&iendTag,4,1,fp_out);
+//                                        fwrite(&crc,4,1,fp_out);
+//                                        break;
+//                                }
+//	                        fseek(fp_in, -3, SEEK_CUR);
+//	                }
+//                        fwrite(&srcByte,1,1,fp_out);
+//                }
+//                position--;
+//        }
+//        fclose(fp_out);
+//        free(bytesArray);
+//
+//        return 0;
+//}
 
-        //+1 потому что между заголовком и данными 0x00
-        u_int16_t resultLen = headerLen + dataLen + 1;
-        char byte1 = (resultLen >> 8);
-        char byte2 = resultLen & 0xFF;
-
-        printf("%x %x", byte1, byte2);
-        //+6 потому что и 2 байт - длина, и tEXt
-        int writeLen = (6+resultLen);
-        char* bytesArray = (char*)malloc(writeLen*sizeof(char));
-        bytesArray[0] = (char)byte1;
-        bytesArray[1] = (char)byte2;
-        bytesArray[2] = 't';
-        bytesArray[3] = 'E';
-        bytesArray[4] = 'X';
-        bytesArray[5] = 't';
-        for (int i = 0; i < headerLen; i++){
-                bytesArray[i+6] = header[i];
-        }
-        bytesArray[headerLen+6] = 0x00;
-        for (int i = 0; i < dataLen; i++){
-                bytesArray[headerLen+7+i] = data[i];
-        }
-        int position = 0;
-        while (fp_in){
-                char currentByte;
-                fread(&currentByte,1,1,fp_in);
-                if (currentByte == 0x49){
-                        char bytes[3] = {0};
-                        fread(&bytes, 3 ,1, fp_in);
-                        if (bytes[0]==0x44 || bytes[1]==0x41 || bytes[2] == 0x54){
-                                break;
+int getArgumentSize(int argc, char** argv, char* flag) {
+        for (int i = 2; i < argc; i++ ) {
+                if (strcmp(argv[i],flag) == 0) {
+                        if (argc <= i+1 || strcmp(argv[i+1],"") == 0) {
+                                printf("Ошибка: Не указано значение метаданных \n");
+                                writeHelpMessage(argv[0]);
+                                return -1;
                         }
-                        fseek(fp_in, -3, SEEK_CUR);
-                }
-                position++;
-        }
-        if (!fp_in){
-                printf("В картинке не найдено поле IDAT. Невозможно добавить метаданные.");
-                return 1;
-        }
-        fseek(fp_in, 0L, SEEK_SET);
-        char* newFilename = malloc(strlen(filename) + 6);
-        snprintf(newFilename, strlen(filename) + 6, "%s_copy", filename);
-        FILE* fp_out = fopen(newFilename, "wb");
-        free(newFilename);
-        if (!fp_out) {
-                printf("Ошибка открытия файла\n");
-                return 1;
-        }
-        while (fp_in) {
-                if (position == 0){
-                        char endChank[2] = {0x00,0x00};
-                        fwrite(&endChank,2,1,fp_out);
-                        for (int i = 0; i< writeLen; i++){
-                                fwrite(bytesArray+i,1,1,fp_out);
+                        if (strcmp(argv[i+1],"0") == 0){
+                                return 0;
                         }
-                        int result = crc32b(bytesArray+2,writeLen-2);
-                        unsigned char crc32Bytes[4];
-                        crc32Bytes[0] = (unsigned char)((result >> 24) & 0xFF);
-                        crc32Bytes[1] = (unsigned char)((result >> 16) & 0xFF);
-                        crc32Bytes[2] = (unsigned char)((result >> 8) & 0xFF);
-                        crc32Bytes[3] = (unsigned char)(result & 0xFF);
-                        fwrite(&crc32Bytes,4,1,fp_out);
-                        printf("%02x %02x %02x %02x\n",crc32Bytes[0],crc32Bytes[1],crc32Bytes[2],crc32Bytes[3]);
-                        
+                        int result = atoi(argv[i+1]);
+                        if (result == 0){
+                                return -1;
+                        }
                 }
-                if (position!=0){
-                        char srcByte;
-                        fread(&srcByte,1,1,fp_in);
-                        if (srcByte == 0x49){
-	                        char bytes[3] = {0};
-	                        fread(&bytes, 3 ,1, fp_in);
-                                if (bytes[0]==0x45 || bytes[1]==0x4e || bytes[2] == 0x44){
-		                        char iendTag[4] = {'I','E','N','D'};
-                                        char crc[4] ={0};
-                                        fread(&crc,4,1,fp_in);
-                                        fwrite(&iendTag,4,1,fp_out);
-                                        fwrite(&crc,4,1,fp_out);
-                                        break;
-                                }
-	                        fseek(fp_in, -3, SEEK_CUR);
-	                }
-                        fwrite(&srcByte,1,1,fp_out);
-                }
-                position--;
         }
-        fclose(fp_out);
-        free(bytesArray);
-
-        return 0;
+        return -1;
 }
+int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
+        printf("Изменение заголовка PNG\n");
+        printf("-----------------------\n");
+        int width = getArgumentSize(argc, argv, "--width");
+        int height = getArgumentSize(argc, argv, "--height");
+        int depth = getArgumentSize(argc, argv, "--depth");
+        int colorType = getArgumentSize(argc, argv, "--colorType");
+        int compression = getArgumentSize(argc, argv, "--compression");
+        int filter = getArgumentSize(argc,argv,"--filter");
+        int interlace = getArgumentSize(argc, argv, "--interlace");
+        
+        bool widthChanged = true;
+        bool heightChanged = true;
+        bool depthChanged = true;
+        bool colorTypeChanged = true;
+        bool compressionChanged = true;
+        bool filterChanged = true;
+        bool interlaceChanged = true;
 
+        if (width < 0) {
+                printf("Изменение ширины не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+                widthChanged = false;
+        }
+        if (height < 0){
+                printf("Изменение высоты не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+                heightChanged = false;
+        }
+        if (depth<0 || depth>15) {
+                printf("Изменение глубины не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+                depthChanged = false;
+        }
+        if (colorType!=0 && colorType != 2 && colorType!=3 && colorType!=4 && colorType!=6){
+                printf("Изменение цветового типа не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+                colorTypeChanged = false;
+        }
+        if (compression<0 || compression>3){
+                printf("Изменение сжатия не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+                compressionChanged = false;
+        }
+        if (filter<0 || filter>4){
+                printf("Изменение метода фильтрации не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+                filterChanged = false;
+        }
+        if (interlace!=0 && interlace!=1){
+                printf("Изменение развёртки не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+                interlaceChanged = false;
+        }
+        unsigned char oldHeader[17] = {0};
+        while (fp_in) {
+                char currentByte = 0x00;
+                fread(&currentByte,1,1,fp_in);
+                if (currentByte == 0x49) {
+                        char bytesHDR[3] = {0};
+                        fread(&bytesHDR,3,1,fp_in);
+                        if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x44 || bytesHDR[2]!=0x52){
+                                fseek(fp_in, -3, SEEK_CUR);
+                                continue;
+                        }
+                        fread(oldHeader,17,1,fp_in);
+                }
+        }
+        if (!fp_in) {
+                printf("Ошибка: У файла не найден IHDR\n");
+                return 1;
+        }
+        unsigned char newHeader[17] = {0};
+        newHeader[0] = 0x49;
+        newHeader[1] = 0x48;
+        newHeader[2] = 0x44;
+        newHeader[3] = 0x52;
+        unsigned char newCRC32IHDR[4] = {0};
+        if (!widthChanged && !heightChanged && !depthChanged && !colorTypeChanged && !compressionChanged && !filterChanged && !interlaceChanged){
+                printf("Итог изменения заголовка: Нечего изменять\n\n");
+        }
+        if (widthChanged) {
+                newHeader[4] = (width >> 24) & 0xFF; 
+                newHeader[5] = (width >> 16) & 0xFF; 
+                newHeader[6] = (width >> 8)  & 0xFF; 
+                newHeader[7] = width & 0xFF;
+        } else {
+                newHeader[4] = oldHeader[0];
+                newHeader[5] = oldHeader[1];
+                newHeader[6] = oldHeader[2];
+                newHeader[7] = oldHeader[3];
+        }
+        if (heightChanged) {
+                newHeader[8] = (height >> 24) & 0xFF; 
+                newHeader[9] = (height >> 16) & 0xFF; 
+                newHeader[10] = (height >> 8)  & 0xFF; 
+                newHeader[11] = height & 0xFF; 
+        } else {
+                newHeader[8] =  oldHeader[0];
+                newHeader[9] =  oldHeader[1];
+                newHeader[10] =  oldHeader[2];
+                newHeader[11] =  oldHeader[3];
+        }
+        if (depthChanged) {
+                newHeader[12] = (unsigned char)depth;
+        } else {
+                newHeader[12] = oldHeader[8];
+        }
+        if (colorTypeChanged) {
+                newHeader[13] = (unsigned char)colorType;
+        } else {
+                newHeader[13] = oldHeader[9];
+        }
+        if (compressionChanged) {
+                newHeader[14] = (unsigned char)compression;
+        } else {
+                newHeader[14] = oldHeader[10];
+        }
+        if (filterChanged) {
+                newHeader[15] = (unsigned char)filter;
+        } else {
+                newHeader[15] = oldHeader[11];
+        }
+        if (interlaceChanged) {
+                newHeader[16] = (unsigned char)interlace;
+        } else {
+                newHeader[16] = oldHeader[12];
+        }
+        int horizontalResolution = getArgumentSize(argc, argv, "--horizontal");
+        int verticalResolution = getArgumentSize(argc, argv, "--vertical");
+        int measure = getArgumentSize(argc,argv,"--measure");
+        if (horizontalResolution == 0) {
+                printf("Изменение горизонтального разрешения не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+        }
+        if (verticalResolution == 0) {
+                printf("Изменение вертикального разрешения не было произведено(указаны некорректные параметры или параметры не указаны)\n");                
+        }
+
+
+}
 int addMetadata(char* filename, char* header, char* data, int argc, char** argv) {
+        char atimeBufferInput[20];
+        char ctimeBufferInput[20];
+        char mtimeBufferInput[20];
+        int changeAtime = getSystemMarks(argc, argv, "--atime",atimeBufferInput);
+        int changeCtime = getSystemMarks(argc, argv, "--ctime",ctimeBufferInput);
+        int changeMtime = getSystemMarks(argc, argv, "--mtime",mtimeBufferInput);
+    
         FILE* fp_in = fopen(filename, "rb");
         if (!fp_in) {
                 printf("Ошибка открытия файла\n");
@@ -611,12 +770,46 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
         char headerBytes[4] = {0};
         fread(&headerBytes, 4, 1, fp_in);
         if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
-                printf("Тип файла: PNG \n");
-                int result = addMetadataPNG(fp_in, header, data, filename);
+                int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
                 fclose(fp_in);
                 return result;
         }
-	return 0;
+        struct timespec new_times[2];
+        struct timespec current_time;
+        if (clock_gettime(CLOCK_REALTIME, &current_time)) {
+                printf("\nОшибка при получении текущего системного времени\n");
+                return 1;
+        }
+    
+        struct tm tm_atime = {0}, tm_ctime = {0}, tm_mtime = {0};
+        strptime(atimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_atime);
+        strptime(ctimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_ctime);
+        strptime(mtimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_mtime);
+
+
+        struct timespec new_system_time;
+        new_system_time.tv_sec = mktime(&tm_ctime);
+        new_system_time.tv_nsec = 0;
+        if (clock_settime(CLOCK_REALTIME, &new_system_time)) {
+            perror("\nОшибка при установке системного времени\n");
+            return 1;
+        }
+        
+        new_times[0].tv_sec = mktime(&tm_atime); 
+        new_times[1].tv_sec = mktime(&tm_mtime);  
+        
+        if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
+            printf("\nОшибка при изменении временных меток файла\n");
+            return 1;
+        }
+        printf("\nВременные метки файла успешно изменены.\n");
+        
+        if (clock_settime(CLOCK_REALTIME, &current_time)) {
+            perror("Ошибка при восстановлении системного времени");
+            return 1;
+        }
+
+        return 0;
 }
 
 
