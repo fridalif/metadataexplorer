@@ -113,8 +113,12 @@ int readMetadataPNG(FILE* fp_in) {
             if (bytes[0]!=0x45 || bytes[1]!=0x58 || bytes[2] != 0x74){
                 fseek(fp_in, -3, SEEK_CUR);
             } else {
-		int remain = lastByte - 0x00;
-		int tempRemain = remain;
+                fseek(fp_in, -8, SEEK_CUR);
+                unsigned char lengthBytes[4] = {0};
+                fread(&lengthBytes,4,1,fp_in);
+                fseek(fp_in, 4, SEEK_CUR);
+		u_int32_t remain = (lengthBytes[0] << 24) | (lengthBytes[1] << 16) | (lengthBytes[2] << 8) | lengthBytes[3];
+		u_int32_t tempRemain = remain;
 		char* metaData = (char*) malloc((remain + 1) * sizeof(char));
 		while (remain>0 && fp_in) {
 		    char metaDataByte;
@@ -621,6 +625,7 @@ int getArgumentSize(int argc, char** argv, char* flag) {
         }
         return -1;
 }
+
 int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
         printf("Изменение заголовка PNG\n");
         printf("-----------------------\n");
@@ -680,10 +685,12 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                                 continue;
                         }
                         fread(oldHeader,17,1,fp_in);
+                        break;
                 }
         }
         if (!fp_in) {
                 printf("Ошибка: У файла не найден IHDR\n");
+                fclose(fp_in);
                 return 1;
         }
         unsigned char newHeader[17] = {0};
@@ -693,6 +700,8 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         newHeader[3] = 0x52;
         if (widthChanged==-1 && heightChanged==-1 && depthChanged==-1 && colorTypeChanged==-1 && compressionChanged==-1 && filterChanged==-1 && interlaceChanged==-1){
                 printf("Итог изменения заголовка: Нечего изменять\n\n");
+        } else{
+                printf("Итог изменения заголовка: Данные изменения заголовка принять в обработку\n\n");
         }
         if (widthChanged!=-1) {
                 newHeader[4] = (width >> 24) & 0xFF; 
@@ -749,18 +758,42 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         newCRC32CharIHDR[2] = (newCRC32 >> 8)  & 0xFF; 
         newCRC32CharIHDR[3] = newCRC32 & 0xFF;
 
-
-
+        printf("Изменение PHYS PNG\n");
+        printf("------------------\n");
         int horizontalResolution = getArgumentSize(argc, argv, "--horizontal");
         int verticalResolution = getArgumentSize(argc, argv, "--vertical");
         int measure = getArgumentSize(argc,argv,"--measure");
-        if (horizontalResolution == 0) {
+        if (horizontalResolution == -1) {
                 printf("Изменение горизонтального разрешения не было произведено(указаны некорректные параметры или параметры не указаны)\n");
         }
-        if (verticalResolution == 0) {
+        if (verticalResolution == -1) {
                 printf("Изменение вертикального разрешения не было произведено(указаны некорректные параметры или параметры не указаны)\n");                
         }
-
+        if (measure!=0 && measure!=1){
+                printf("Изменение меры измерения разрещения не было произведено(указаны некорректные параметры или параметры не указаны)\n");
+        }
+        if (horizontalResolution == -1 && verticalResolution == -1 && measure!=0 && measure!=1) {
+                printf("Итог изменения PHYS: Нечего изменть\n\n");
+        } else {
+                printf("Итог изменения PHYS: Данные приняты в обработку\n\n");
+        }
+        
+        int physFound = -1;
+        unsigned char oldPhys[9];
+        while (fp_in) {
+                char currentByte = 0x00;
+                fread(&currentByte,1,1,fp_in);
+                if (currentByte == 0x49) {
+                        char bytesHDR[3] = {0};
+                        fread(&bytesHDR,3,1,fp_in);
+                        if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x44 || bytesHDR[2]!=0x52){
+                                fseek(fp_in, -3, SEEK_CUR);
+                                continue;
+                        }
+                        fread(oldHeader,17,1,fp_in);
+                        break;
+                }
+        }
 
 }
 int addMetadata(char* filename, char* header, char* data, int argc, char** argv) {
@@ -780,7 +813,6 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
         fread(&headerBytes, 4, 1, fp_in);
         if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
-                fclose(fp_in);
                 return result;
         }
         struct timespec new_times[2];
@@ -877,15 +909,11 @@ char* getHeader(int argc, char** argv) {
 	for (int i = 2; i < argc; i++ ) {
                 if (strcmp(argv[i],"--header") == 0) {
                         if (argc <= i+1 || strcmp(argv[i+1],"") == 0) {
-                                printf("Ошибка: Не указан заголовок метаданных \n");
-                                writeHelpMessage(argv[0]);
                                 return NULL;
                         }
                         return argv[i+1];
                 }
         }
-	printf("Ошибка: Не указан заголовок метаданных \n");
-        writeHelpMessage(argv[0]);
         return NULL;
 }
 
@@ -893,15 +921,11 @@ char* getData(int argc, char** argv) {
         for (int i = 2; i < argc; i++ ) {
                 if (strcmp(argv[i],"--data") == 0) {
                         if (argc <= i+1 || strcmp(argv[i+1],"") == 0) {
-                                printf("Ошибка: Не указано значение метаданных \n");
-                                writeHelpMessage(argv[0]);
                                 return NULL;
                         }
                         return argv[i+1];
                 }
         }
-        printf("Ошибка: Не указано значение метаданных \n");
-        writeHelpMessage(argv[0]);
         return NULL;
 }
 
@@ -946,11 +970,8 @@ int main(int argc, char** argv) {
                         return 1;
                 }
 		char* header = getHeader(argc,argv);
-                if (header == NULL){
-                        return 1;
-                }
 		char* data = getData(argc,argv);
-                if (data == NULL){
+                if ((header!=NULL && data == NULL) || (header==NULL&&data!=NULL)){
                         return 1;
                 }
 		addMetadata(filename, header, data, argc, argv);
