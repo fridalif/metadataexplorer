@@ -632,41 +632,41 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         int filter = getArgumentSize(argc,argv,"--filter");
         int interlace = getArgumentSize(argc, argv, "--interlace");
         
-        bool widthChanged = true;
-        bool heightChanged = true;
-        bool depthChanged = true;
-        bool colorTypeChanged = true;
-        bool compressionChanged = true;
-        bool filterChanged = true;
-        bool interlaceChanged = true;
+        int widthChanged = 1;
+        int heightChanged = 1;
+        int depthChanged = 1;
+        int colorTypeChanged = 1;
+        int compressionChanged = 1;
+        int filterChanged = 1;
+        int interlaceChanged = 1;
 
         if (width < 0) {
                 printf("Изменение ширины не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                widthChanged = false;
+                widthChanged = -1;
         }
         if (height < 0){
                 printf("Изменение высоты не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                heightChanged = false;
+                heightChanged = -1;
         }
         if (depth<0 || depth>15) {
                 printf("Изменение глубины не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                depthChanged = false;
+                depthChanged = -1;
         }
         if (colorType!=0 && colorType != 2 && colorType!=3 && colorType!=4 && colorType!=6){
                 printf("Изменение цветового типа не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                colorTypeChanged = false;
+                colorTypeChanged = -1;
         }
         if (compression<0 || compression>3){
                 printf("Изменение сжатия не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                compressionChanged = false;
+                compressionChanged = -1;
         }
         if (filter<0 || filter>4){
                 printf("Изменение метода фильтрации не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                filterChanged = false;
+                filterChanged = -1;
         }
         if (interlace!=0 && interlace!=1){
                 printf("Изменение развёртки не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                interlaceChanged = false;
+                interlaceChanged = -1;
         }
         unsigned char oldHeader[17] = {0};
         while (fp_in) {
@@ -691,10 +691,10 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         newHeader[1] = 0x48;
         newHeader[2] = 0x44;
         newHeader[3] = 0x52;
-        if (!widthChanged && !heightChanged && !depthChanged && !colorTypeChanged && !compressionChanged && !filterChanged && !interlaceChanged){
+        if (widthChanged==-1 && heightChanged==-1 && depthChanged==-1 && colorTypeChanged==-1 && compressionChanged==-1 && filterChanged==-1 && interlaceChanged==-1){
                 printf("Итог изменения заголовка: Нечего изменять\n\n");
         }
-        if (widthChanged) {
+        if (widthChanged!=-1) {
                 newHeader[4] = (width >> 24) & 0xFF; 
                 newHeader[5] = (width >> 16) & 0xFF; 
                 newHeader[6] = (width >> 8)  & 0xFF; 
@@ -705,7 +705,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 newHeader[6] = oldHeader[2];
                 newHeader[7] = oldHeader[3];
         }
-        if (heightChanged) {
+        if (heightChanged!=-1) {
                 newHeader[8] = (height >> 24) & 0xFF; 
                 newHeader[9] = (height >> 16) & 0xFF; 
                 newHeader[10] = (height >> 8)  & 0xFF; 
@@ -716,27 +716,27 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 newHeader[10] =  oldHeader[2];
                 newHeader[11] =  oldHeader[3];
         }
-        if (depthChanged) {
+        if (depthChanged!=-1) {
                 newHeader[12] = (unsigned char)depth;
         } else {
                 newHeader[12] = oldHeader[8];
         }
-        if (colorTypeChanged) {
+        if (colorTypeChanged!=-1) {
                 newHeader[13] = (unsigned char)colorType;
         } else {
                 newHeader[13] = oldHeader[9];
         }
-        if (compressionChanged) {
+        if (compressionChanged!=-1) {
                 newHeader[14] = (unsigned char)compression;
         } else {
                 newHeader[14] = oldHeader[10];
         }
-        if (filterChanged) {
+        if (filterChanged!=-1) {
                 newHeader[15] = (unsigned char)filter;
         } else {
                 newHeader[15] = oldHeader[11];
         }
-        if (interlaceChanged) {
+        if (interlaceChanged!=-1) {
                 newHeader[16] = (unsigned char)interlace;
         } else {
                 newHeader[16] = oldHeader[12];
