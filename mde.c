@@ -105,7 +105,10 @@ unsigned int crc32b(unsigned char *message, int len) {
 int readMetadataPNG(FILE* fp_in) {
     char lastByte;
     char currentByte;
-    while (fp_in){
+    if (!fp_in) {
+        return 1;
+    }
+    while (fread(&currentByte, 1, 1, fp_in) == 1){
         fread(&currentByte, 1, 1, fp_in);
         if (currentByte == 0x74){
             char bytes[3] = {0};
@@ -674,21 +677,25 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 interlaceChanged = -1;
         }
         unsigned char oldHeader[17] = {0};
-        while (fp_in) {
+        int headerFound = 0;
+        if (fp_in) {
                 char currentByte = 0x00;
-                fread(&currentByte,1,1,fp_in);
-                if (currentByte == 0x49) {
-                        char bytesHDR[3] = {0};
-                        fread(&bytesHDR,3,1,fp_in);
-                        if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x44 || bytesHDR[2]!=0x52){
-                                fseek(fp_in, -3, SEEK_CUR);
-                                continue;
+                while (fread(&currentByte,1,1,fp_in) == 1){
+                        if (currentByte == 0x49) {
+                                char bytesHDR[3] = {0};
+                                fread(&bytesHDR,3,1,fp_in);
+                                if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x44 || bytesHDR[2]!=0x52){
+                                        fseek(fp_in, -3, SEEK_CUR);
+                                        continue;
+                                }
+                                headerFound = 1;
+                                fread(oldHeader,17,1,fp_in);
+                                break;
                         }
-                        fread(oldHeader,17,1,fp_in);
-                        break;
                 }
         }
-        if (!fp_in) {
+        
+        if (headerFound == 0) {
                 printf("Ошибка: У файла не найден IHDR\n");
                 fclose(fp_in);
                 return 1;
@@ -780,19 +787,20 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         
         int physFound = -1;
         unsigned char oldPhys[13] = {0};
-        while (fp_in) {
+        if (fp_in) {
                 char currentByte = 0x00;
-                fread(&currentByte,1,1,fp_in);
-                if (currentByte == 0x70) {
-                        char bytesHDR[3] = {0};
-                        fread(&bytesHDR,3,1,fp_in);
-                        if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x59 || bytesHDR[2]!=0x73){
-                                fseek(fp_in, -3, SEEK_CUR);
-                                continue;
-                        }
-                        physFound = 1;
-                        fread(oldPhys,13,1,fp_in);
-                        break;
+                while (fread(&currentByte,1,1,fp_in) == 1){
+                        if (currentByte == 0x70) {
+                                char bytesHDR[3] = {0};
+                                fread(&bytesHDR,3,1,fp_in);
+                                if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x59 || bytesHDR[2]!=0x73){
+                                        fseek(fp_in, -3, SEEK_CUR);
+                                        continue;
+                                }
+                                physFound = 1;
+                                fread(oldPhys,13,1,fp_in);
+                                break;
+                        } 
                 }
         }
         unsigned char newPhys[13] = {0};
@@ -851,21 +859,22 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         FILE* fp_in_copy = fopen(filename, "rb");
         FILE* fp_out_copy = fopen(new_filename, "wb");
         
-        while (fp_in) {
+        if (fp_in_copy && fp_out_copy) {
                 char currentByte = 0x00;
-                fread(&currentByte,1,1,fp_in_copy);
-                fwrite(&currentByte,1,1,fp_out_copy);
+                while (fread(&currentByte, 1, 1, fp_in_copy) == 1) {
+                        fwrite(&currentByte, 1, 1, fp_out_copy);
+                }
         }
-        fclose(fp_in_copy);
-        fclose(fp_out_copy);
+
+        if (fp_in_copy) fclose(fp_in_copy);
+        if (fp_out_copy) fclose(fp_out_copy);   
 
         printf("Процесс изменения исходного файла:\n");
         FILE* fp_out = fopen(filename, "wb");
         FILE* fp_in_copied = fopen(new_filename, "rb");
-
-        while (fp_in_copied) {
-                unsigned char currentByte = 0x00;
-                fread(&currentByte,1,1,fp_in_copied);
+        if (fp_in_copied && fp_out) {
+             unsigned char currentByte = 0x00;
+             while (fread(&currentByte, 1, 1, fp_in_copied) == 1) {
                 if (currentByte == 0x49) {
                         unsigned char bytesHDR[3] = {0};
                         fread(&bytesHDR,3,1,fp_in_copied);
@@ -880,6 +889,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                                 fseek(fp_in_copied, 20, SEEK_CUR);
                                 printf("Изменение IHDR: Успешно\n\n");          
                         } else {
+                                fseek(fp_in_copied, -3, SEEK_CUR);
                                 fwrite(&currentByte,1,1,fp_out);
                                 for (int i = 0; i < 20; i++) {
                                         unsigned char innerByte = 0x00;
@@ -889,6 +899,12 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                         }
                         if (header!=NULL && data!=NULL) {
                                 u_int32_t length = strlen(header) + strlen(data) + 1;
+                                u_int8_t bytes[4];
+                                bytes[0] = (length >> 24) & 0xFF; 
+                                bytes[1] = (length >> 16) & 0xFF;
+                                bytes[2] = (length >> 8) & 0xFF;
+                                bytes[3] = (length >> 0) & 0xFF;
+
                                 char* newMetadata = (char*)malloc(length+4);
                                 newMetadata[0] = 0x74;
                                 newMetadata[1] = 0x45;
@@ -903,6 +919,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                                 newCRC32CharTXT[1] = (newCRC32 >> 16) & 0xFF; 
                                 newCRC32CharTXT[2] = (newCRC32 >> 8)  & 0xFF; 
                                 newCRC32CharTXT[3] = newCRC32 & 0xFF;
+                                fwrite(bytes, 4, 1, fp_out);
                                 fwrite(newMetadata, length + 4, 1, fp_out);
                                 fwrite(newCRC32CharTXT,4,1,fp_out);
                                 printf("Добавление новых метаданных: Успешно\n\n");
@@ -926,6 +943,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                                 continue; 
                         }
                         fwrite(&currentByte,1,1,fp_out);
+                        fseek(fp_in_copied, -3, SEEK_CUR);
                         for (int i = 0; i < 12; i++) {
                                 unsigned char innerByte = 0x00;
                                 fread(&innerByte,1,1,fp_in_copied);
@@ -934,7 +952,9 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                         continue;
                 }
                 fwrite(&currentByte,1,1,fp_out);
+        }   
         }
+        
         printf("Изменение исходного файла: Успешно\n\n");
         fclose(fp_in_copied);
         fclose(fp_out);
