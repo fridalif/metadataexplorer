@@ -109,7 +109,6 @@ int readMetadataPNG(FILE* fp_in) {
         return 1;
     }
     while (fread(&currentByte, 1, 1, fp_in) == 1){
-        fread(&currentByte, 1, 1, fp_in);
         if (currentByte == 0x74){
             char bytes[3] = {0};
             fread(&bytes, 3 ,1, fp_in);
@@ -612,11 +611,13 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
 int getArgumentSize(int argc, char** argv, char* flag) {
         for (int i = 2; i < argc; i++ ) {
                 if (strcmp(argv[i],flag) == 0) {
+                        
                         if (argc <= i+1 || strcmp(argv[i+1],"") == 0) {
                                 printf("Ошибка: Не указано значение метаданных \n");
                                 writeHelpMessage(argv[0]);
                                 return -1;
                         }
+                        
                         if (strcmp(argv[i+1],"0") == 0){
                                 return 0;
                         }
@@ -624,6 +625,7 @@ int getArgumentSize(int argc, char** argv, char* flag) {
                         if (result == 0){
                                 return -1;
                         }
+                        return result;
                 }
         }
         return -1;
@@ -694,7 +696,6 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                         }
                 }
         }
-        
         if (headerFound == 0) {
                 printf("Ошибка: У файла не найден IHDR\n");
                 fclose(fp_in);
@@ -803,6 +804,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                         } 
                 }
         }
+        
         unsigned char newPhys[13] = {0};
         newPhys[0] = 0x70;
         newPhys[1] = 0x48;
@@ -825,15 +827,15 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 newPhys[10] = (verticalResolution >> 8)  & 0xFF; 
                 newPhys[11] = verticalResolution & 0xFF; 
         } else {
-                newPhys[8] =  oldPhys[0];
-                newPhys[9] =  oldPhys[1];
-                newPhys[10] =  oldPhys[2];
-                newPhys[11] =  oldPhys[3];
+                newPhys[8] =  oldPhys[4];
+                newPhys[9] =  oldPhys[5];
+                newPhys[10] =  oldPhys[6];
+                newPhys[11] =  oldPhys[7];
         }
         if (measure != -1) {
                 newPhys[12] = (unsigned char)measure;
         } else {
-                newPhys[12] = oldPhys[4];
+                newPhys[12] = oldPhys[8];
         }
         newCRC32 = crc32b(newPhys, 13);
         unsigned char newCRC32CharPHYS[4] = {0};
@@ -886,7 +888,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                         if (!(widthChanged==-1 && heightChanged==-1 && depthChanged==-1 && colorTypeChanged==-1 && compressionChanged==-1 && filterChanged==-1 && interlaceChanged==-1)){
                                 fwrite(newHeader,17,1,fp_out);
                                 fwrite(newCRC32CharIHDR,4,1,fp_out);
-                                fseek(fp_in_copied, 20, SEEK_CUR);
+                                fseek(fp_in_copied, 17, SEEK_CUR);
                                 printf("Изменение IHDR: Успешно\n\n");          
                         } else {
                                 fseek(fp_in_copied, -3, SEEK_CUR);
@@ -938,7 +940,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                         if (!(horizontalResolution == -1 && verticalResolution == -1 && measure!=0 && measure!=1)) {
                                 fwrite(newPhys,13,1,fp_out);
                                 fwrite(newCRC32CharPHYS,4,1,fp_out);
-                                fseek(fp_in_copied, 12, SEEK_CUR);
+                                fseek(fp_in_copied, 13, SEEK_CUR);
                                 printf("Изменение PHYS: Успешно\n\n");   
                                 continue; 
                         }
