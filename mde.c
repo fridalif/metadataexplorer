@@ -29,25 +29,6 @@ int writeHelpMessage(char* execName) {
         printf("\t--horizontal <Число> - Горизонтальное разрешение\n");
         printf("\t--vertical <Число> - Вертикальное разрешение\n");
         printf("\t--measure {0,1} - Единица измерения разрешения, 0 - соотношение сторон, 1 - метры\n");
-        printf("\t--interlace {0,1} - Разрвёртка, 0 - нет, 1 - Adam7\n");
-        printf("\t--compression {0,1,2,3} - Cжатие\n");
-        printf("\t\t 0 - Deflate самый быстрый\n");
-        printf("\t\t 1 - Deflate быстрый\n");
-        printf("\t\t 2 - Deflate по умолчанию\n");
-        printf("\t\t 3 - Deflate максимальное сжатие\n");
-        printf("\t--filter {0,1,2,3,4} - Метод фильтрации\n");
-        printf("\t\t 0 - Нет\n");
-        printf("\t\t 1 - Вычитание левого(Sub)\n");
-        printf("\t\t 2 - Вычитание верхнего(Up)\n");
-        printf("\t\t 3 - Вычитание среднего(Average)\n");
-        printf("\t\t 4 - Алгоритм Paeth\n");
-        printf("\t--colorType {0,2,3,4,6} - Цветовой тип\n");
-        printf("\t\t 0 - Оттенки серого\n");
-        printf("\t\t 2 - RGB\n");
-        printf("\t\t 3 - Палитровые цвета\n");
-        printf("\t\t 4 - Оттенки серого с альфа-каналом\n");
-        printf("\t\t 6 - RGB с альфа-каналом\n");
-        printf("\t--depth {0-15} - Глубина цвета\n");
         printf("\nJPEG\n");
         printf("\tВ разработке\n");
         printf("\nGIF\n");
@@ -636,11 +617,6 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         printf("-----------------------\n");
         int width = getArgumentSize(argc, argv, "--width");
         int height = getArgumentSize(argc, argv, "--height");
-        int depth = getArgumentSize(argc, argv, "--depth");
-        int colorType = getArgumentSize(argc, argv, "--colorType");
-        int compression = getArgumentSize(argc, argv, "--compression");
-        int filter = getArgumentSize(argc,argv,"--filter");
-        int interlace = getArgumentSize(argc, argv, "--interlace");
         
         int widthChanged = 1;
         int heightChanged = 1;
@@ -657,26 +633,6 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         if (height < 0){
                 printf("Изменение высоты не было произведено(указаны некорректные параметры или параметры не указаны)\n");
                 heightChanged = -1;
-        }
-        if (depth<0 || depth>15) {
-                printf("Изменение глубины не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                depthChanged = -1;
-        }
-        if (colorType!=0 && colorType != 2 && colorType!=3 && colorType!=4 && colorType!=6){
-                printf("Изменение цветового типа не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                colorTypeChanged = -1;
-        }
-        if (compression<0 || compression>3){
-                printf("Изменение сжатия не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                compressionChanged = -1;
-        }
-        if (filter<0 || filter>4){
-                printf("Изменение метода фильтрации не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                filterChanged = -1;
-        }
-        if (interlace!=0 && interlace!=1){
-                printf("Изменение развёртки не было произведено(указаны некорректные параметры или параметры не указаны)\n");
-                interlaceChanged = -1;
         }
         unsigned char oldHeader[17] = {0};
         int headerFound = 0;
@@ -733,32 +689,13 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 newHeader[10] =  oldHeader[2];
                 newHeader[11] =  oldHeader[3];
         }
-        if (depthChanged!=-1) {
-                newHeader[12] = (unsigned char)depth;
-        } else {
-                newHeader[12] = oldHeader[8];
-        }
-        if (colorTypeChanged!=-1) {
-                newHeader[13] = (unsigned char)colorType;
-        } else {
-                newHeader[13] = oldHeader[9];
-        }
-        if (compressionChanged!=-1) {
-                newHeader[14] = (unsigned char)compression;
-        } else {
-                newHeader[14] = oldHeader[10];
-        }
-        if (filterChanged!=-1) {
-                newHeader[15] = (unsigned char)filter;
-        } else {
-                newHeader[15] = oldHeader[11];
-        }
-        if (interlaceChanged!=-1) {
-                newHeader[16] = (unsigned char)interlace;
-        } else {
-                newHeader[16] = oldHeader[12];
-        }
-
+        
+        newHeader[12] = oldHeader[8];
+        newHeader[13] = oldHeader[9];
+        newHeader[14] = oldHeader[10];
+        newHeader[15] = oldHeader[11];
+        newHeader[16] = oldHeader[12];
+       
         unsigned int newCRC32 = crc32b(newHeader, 17);
         unsigned char newCRC32CharIHDR[4] = {0};
         newCRC32CharIHDR[0] = (newCRC32 >> 24) & 0xFF; 
