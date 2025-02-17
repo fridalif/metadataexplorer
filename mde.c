@@ -467,6 +467,13 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
                         fseek(fp_copy, -currentTab-1-4-3,SEEK_CUR);
                         continue;
                 }
+                fread(&currentByte, 1, 1, fp_copy);
+                fseek(fp_copy,-1,SEEK_CUR);
+                if (currentByte != 0x00) {
+                        fwrite(currentBytes,1,1,fp_delete);
+                        fseek(fp_copy, -currentTab-1-4-3,SEEK_CUR);
+                        continue;  
+                }
                 // 00 00 00 24 t E X t h e a d e r
                 unsigned char fileMetaLen[4] = {0};
                 fseek(fp_copy,-currentTab-1-4-4, SEEK_CUR);
@@ -997,7 +1004,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                 heightChanged = -1;
         }
         unsigned char oldHeader[17] = {0};
-        int headerFound = -1;
+        int headerFound = 0;
         if (fp_in) {
                 char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
@@ -1019,12 +1026,13 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                 fclose(fp_in);
                 return 1;
         }
+        headerFound = -1;
         unsigned char newHeader[17] = {0};
         newHeader[0] = 0x49;
         newHeader[1] = 0x48;
         newHeader[2] = 0x44;
         newHeader[3] = 0x52;
-        if (widthChanged==-1 && heightChanged==-1 && depthChanged==-1 && colorTypeChanged==-1 && compressionChanged==-1 && filterChanged==-1 && interlaceChanged==-1){
+        if (widthChanged==-1 && heightChanged==-1){
                 printf("Итог изменения заголовка: Нечего изменять\n\n");
         } else{
                 printf("Итог изменения заголовка: Данные изменения заголовка принять в обработку\n\n");
@@ -1174,8 +1182,6 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         FILE* fp_in_copied = fopen(new_filename, "rb");
         unsigned char currentBytes[8] = {0};
         int result = 0;
-
-        int headerLen = header != NULL ? strlen(header) : 0;
         while (1) {
                 result = fread(currentBytes,1,8, fp_in_copied);
                 if (result == 0) {
@@ -1185,7 +1191,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                         fwrite(currentBytes,result, 1, fp_out);
                         break;
                 }
-                if ((currentBytes[4]!=0x74 || header!=NULL || data!=NULL) && (currentBytes[4]!=0x49||(widthChanged==-1 && heightChanged==-1 && depthChanged==-1 && colorTypeChanged==-1 && compressionChanged==-1 && filterChanged==-1 && interlaceChanged==-1)) && (currentBytes[4]!=0x70||(horizontalResolution == -1 && verticalResolution == -1 && measure!=0 && measure!=1))){
+                if ((currentBytes[4]!=0x74 || header==NULL || data==NULL) && (currentBytes[4]!=0x49||(widthChanged==-1 && heightChanged==-1)) && (currentBytes[4]!=0x70||(horizontalResolution == -1 && verticalResolution == -1 && measure!=0 && measure!=1))){
                         fwrite(currentBytes, 1, 1,fp_out);
                         fseek(fp_in_copied,-7,SEEK_CUR);
                         continue;
@@ -1228,6 +1234,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                 int currentTab = 0;
                 unsigned char currentByte = 0x00;
                 int otherText = -1;
+                int headerLen = strlen(header);
                 for (int i = 0; i < headerLen; i++){
                         fread(&currentByte,1,1,fp_in_copied);
                         currentTab++;
@@ -1236,13 +1243,20 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                                 break;
                         }
                 }
-
-                fseek(fp_in_copied,-7-currentTab,SEEK_CUR);
                 if (otherText == 1){
                         fwrite(currentBytes, 1, 1,fp_out);
+                        fseek(fp_in_copied,-7-currentTab,SEEK_CUR);
                         continue; 
                 }
+                fread(&currentByte,1,1,fp_in_copied);
+                fseek(fp_in_copied,-1,SEEK_CUR);
+                if (currentByte != 0x00){
+                        fwrite(currentBytes, 1, 1,fp_out);
+                        fseek(fp_in_copied,-7-currentTab,SEEK_CUR);
+                }
+                fseek(fp_in_copied,-currentTab,SEEK_CUR);
                 fseek(fp_in_copied, length+4, SEEK_CUR);
+                
                 u_int32_t newLength = strlen(header) + strlen(data) + 1;
                 u_int8_t bytes[4];
                 bytes[0] = (newLength >> 24) & 0xFF; 
@@ -1257,23 +1271,23 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                 strcpy(newMetadata + 4, header);
                 newMetadata[4 + strlen(header)] = 0x00;
                 strcpy(newMetadata + 4 + strlen(header) + 1, data);
-                newCRC32 = crc32b(newMetadata, length);
+                newCRC32 = crc32b(newMetadata, newLength);
                 unsigned char newCRC32CharTXT[4] = {0};
                 newCRC32CharTXT[0] = (newCRC32 >> 24) & 0xFF; 
                 newCRC32CharTXT[1] = (newCRC32 >> 16) & 0xFF; 
                 newCRC32CharTXT[2] = (newCRC32 >> 8)  & 0xFF; 
                 newCRC32CharTXT[3] = newCRC32 & 0xFF;
                 fwrite(bytes, 4, 1, fp_out);
-                fwrite(newMetadata, length + 4, 1, fp_out);
+                fwrite(newMetadata, newLength + 4, 1, fp_out);
                 fwrite(newCRC32CharTXT,4,1,fp_out);
-                printf("Добавление новых метаданных: Успешно\n\n");
+                printf("Изменение метаданных: Успешно\n\n");
                 headerFound = 1;
                 free(newMetadata);
         }
         if (fp_in_copied) fclose(fp_in_copied);
         if(fp_out) fclose(fp_out);
         if (header!=NULL && data!=NULL && headerFound == -1){
-                printf("Добавление новых метаданных: Не найдены метаданные с заданным заголовком\n\n");
+                printf("Изменение метаданных: Не найдены метаданные с заданным заголовком\n\n");
         }
         return 0;
 }
