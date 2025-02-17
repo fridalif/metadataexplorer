@@ -384,6 +384,7 @@ int readMetadata(char* filename, int argc, char** argv){
 
 */
 int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
+        int foundMetadata = -1;
         unsigned char currentByte = 0x00;
         fseek(fp_in, 0, SEEK_SET);
         char* new_filename = (char*)malloc(strlen(filename) + strlen("_delete_copy") + 1);
@@ -470,10 +471,15 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
                 fseek(fp_copy,-currentTab-1-4-4, SEEK_CUR);
                 //4 - длина, 4 - tEXt, 4- CRC32
                 fseek(fp_copy, 4+4+4+length, SEEK_CUR);
+                foundMetadata = 1;
         }
         fclose(fp_copy);
         fclose(fp_delete);
-        printf("Успешно!");
+        if (foundMetadata == -1) {
+                printf("Метаданные с таки заголовком не найдены!");
+        } else {
+                printf("Успешно!");
+        }
         return 1;
 }
 
