@@ -17,18 +17,18 @@ int writeHelpMessage(char* execName) {
 	printf("Использование: %s {--update, --add, --delete, --read, --help} [{Опции}]\n", execName);
 	printf("Опции: \n");
 	printf("--filename <имя_файла> - Название файла с которым будет проводиться работа \n");
-        printf("{--atime, --ctime, --mtime} ГГГГ-ММ-ДД ЧЧ:мм:сс - Изменение системных меток(если нет флага оставляет прошлые)\n");
+        printf("{--atime, --ctime, --mtime} ГГГГ-ММ-ДД ЧЧ:мм:сс - Изменение системных меток(если нет флага оставляет прошлые)-H\n");
         printf("\t atime - Дата последнего доступа \n");
         printf("\t ctime - Дата изменения метаданных \n");
         printf("\t mtime - Дата последнего изменения \n");
 	printf("--header <Заголовок> - Заголовок метаданных (комментария) при изменении, удалении и добавлении \n");
-	printf("--data <Данные> - Метаданные (комментарий), которые будут добавлены или на которые будет произведена подмена\n");
+	printf("--data <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена подмена\n");
         printf("\nPNG\n");
-        printf("\t--width <Пиксели> - Ширина в пикселях\n");
-        printf("\t--height <Пиксели> - Высота в пикселях\n");
-        printf("\t--horizontal <Число> - Горизонтальное разрешение\n");
-        printf("\t--vertical <Число> - Вертикальное разрешение\n");
-        printf("\t--measure {0,1} - Единица измерения разрешения, 0 - соотношение сторон, 1 - метры\n");
+        printf("\t--width <Пиксели> - Ширина в пикселях(только в режиме --add и --update)\n");
+        printf("\t--height <Пиксели> - Высота в пикселях(только в режиме --add и --update)\n");
+        printf("\t--horizontal <Число> - Горизонтальное разрешение(только в режиме --add и --update)\n");
+        printf("\t--vertical <Число> - Вертикальное разрешение(только в режиме --add и --update)\n");
+        printf("\t--measure {0,1} - Единица измерения разрешения, 0 - соотношение сторон, 1 - метры(только в режиме --add и --update)\n");
         printf("\nJPEG\n");
         printf("\tВ разработке\n");
         printf("\nGIF\n");
@@ -384,106 +384,180 @@ int readMetadata(char* filename, int argc, char** argv){
 
 */
 int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
-        int headerLen = strlen(header);
-        int position = 0;
-        u_int16_t byteLen = 0;
-        while (fp_in){
-                char currentByte;
-                fread(&currentByte, 1, 1, fp_in);
-                if (currentByte == 0x49){
-                        char bytes[3] = {0};
-                        fread(&bytes,3,1,fp_in);
-                        if ((bytes[0] == 0x45 && bytes[1] == 0x4e && bytes[2] == 0x44)||(bytes[0] == 0x44 && bytes[1] == 0x41 && bytes[2] == 0x54)){
-                                printf("Не найдено метаданных с таким заголовком");
-                                fclose(fp_in);
-                                return 1;
-                        }
-                        fseek(fp_in, -3, SEEK_CUR);
+        unsigned char currentByte = 0x00;
+        fseek(fp_in, 0, SEEK_SET);
+        char* new_filename = (char*)malloc(strlen(filename) + strlen("_delete_copy") + 1);
+        if (new_filename == NULL) {
+                printf("Ошибка выделения памяти\n");
+                return 1;
+        }
+        strcpy(new_filename, filename);
+        strcat(new_filename, "_delete_copy");
+        
+        FILE* fp_out = fopen(new_filename, "wb");
+        if (!fp_out) {
+                printf("Ошибка открытия файла для резервного копирования\n");
+                free(new_filename);
+                return 1;
+        }
+        while(fread(&currentByte, 1, 1, fp_in) == 1){
+                fwrite(&currentByte, 1, 1, fp_out);
+        }
+        fclose(fp_out);
+        fclose(fp_in);
+        FILE* fp_copy = fopen(new_filename, "rb");
+        FILE* fp_delete = fopen(filename, "wb");
+        if (!fp_copy || !fp_delete) {
+                perror("Ошибка открытия файлов для удаления\n");
+                if(fp_copy){
+                        fclose(fp_copy);
                 }
-                if (currentByte == 0x74){
-                        char bytes[3] = {0};
-                        fread(&bytes,3,1,fp_in);
-                        if (bytes[0]==0x45 && bytes[1]==0x58 && bytes[2] == 0x74){
-                                fseek(fp_in,-6,SEEK_CUR);
-                                char tempLen[2] = {0};
-                                fread(&tempLen, 2, 1, fp_in);
-                                fseek(fp_in,4,SEEK_CUR);
-                                u_int16_t tempLenInt = (tempLen[0] << 8) | tempLen[1];
-                                if (tempLenInt<=headerLen){
-                                        fseek(fp_in,-3,SEEK_CUR);
-                                        position++;
-                                        continue;
-                                }
-                                int notFound = 0;
-                                for (int i = 0; i < headerLen; i++){
-                                        char fileByteHeader = 0x00;
-                                        fread(&fileByteHeader,1,1,fp_in);
-                                        if (fileByteHeader!=header[i]){
-                                                position++;
-                                                fseek(fp_in,-4-i,SEEK_CUR);
-                                                notFound = 1;
-                                                break;
-                                        }
-                                }
-                                if (notFound == 1){
-                                        continue;
-                                }
-                                position-=3;
-                                byteLen = tempLenInt;
+                if(fp_delete){
+                        fclose(fp_delete);
+                }
+                return 1;
+        }
+        int headerLen = strlen(header);
+        unsigned char currentBytes[8] = {0x00};
+        int result = 0;
+        currentByte = 0x00;
+        while(1){
+                result = fread(&currentBytes,1, 8, fp_copy);
+                if (result == 0){
+                        break;
+                }
+                if (result<8){
+                        fwrite(&currentBytes,result, 1, fp_delete);
+                        break;
+                }
+                if (currentBytes[4]!=0x74){
+                        fwrite(&currentBytes, 1, 1,fp_delete);
+                        fseek(fp_copy,-7,SEEK_CUR);
+                        continue;
+                }
+                if (currentBytes[5]!=0x45 || currentBytes[6]!=0x58 || currentBytes[7]!=0x74){
+                        fwrite(&currentBytes, 1, 1,fp_delete);
+                        fseek(fp_copy,-7,SEEK_CUR);
+                        continue;
+                }
+                u_int32_t length = (currentBytes[3] << 0)  |
+                                   (currentBytes[2] << 8)  |
+                                   (currentBytes[1] << 16) |
+                                   (currentBytes[0] << 24);
+                fread(&currentByte,1,1,fp_copy);
+                if (currentByte != header[0]){
+                        fwrite(&currentBytes,1,1,fp_delete);
+                        fseek(fp_copy, -1-4-3,SEEK_CUR);
+                        continue;
+                }
+                int currentTab = 0;
+                int thisHeader = 1;
+                for (int i = 1; i < headerLen; i++) {
+                        fread(&currentByte, 1, 1, fp_copy);
+                        currentTab++;
+                        if (currentByte != header[i]){
+                                thisHeader = -1;
                                 break;
                         }
                 }
-                position++;
+                if (thisHeader == -1) {
+                        fwrite(&currentBytes,1,1,fp_delete);
+                        fseek(fp_copy, -currentTab-1-4-3,SEEK_CUR);
+                        continue;
+                }
+                // 00 00 00 24 t E X t h e a d e r
+                unsigned char fileMetaLen[4] = {0};
+                fseek(fp_copy,-currentTab-1-4-4, SEEK_CUR);
+                //4 - длина, 4 - tEXt, 4- CRC32
+                fseek(fp_copy, 4+4+4+length, SEEK_CUR);
         }
-        if (!fp_in){
-                printf("Не нашлось метаданных с таким заголовком\n");
-                fclose(fp_in);
-                return 1;
-        }
-        fseek(fp_in, 0L, SEEK_SET);
-        fseek(fp_in, position+6, SEEK_CUR);
-        char nullBytes[2] = {};
-        fread(&nullBytes,2,1,fp_in);
-        char lenghtBytes[2] = {};
-        fread(&lenghtBytes,2,1,fp_in);
-        char textBytes[4] = {};
-        fread(&textBytes,4,1,fp_in);
-        char* headerAndDataBytes = (char*)malloc(byteLen);
-        for (int i = 0; i < byteLen; i++){
-                char currentByte = 0x00;
-                fread(&currentByte, 1, 1, fp_in);
-                headerAndDataBytes[i] = currentByte;
-        }
-        char crc32Bytes[4] = {};
-        fread(&crc32Bytes,4,1,fp_in);
-        printf("Null Bytes: %x %x\n", nullBytes[0], nullBytes[1]);
-        printf("Length Bytes: %x %x\n", lenghtBytes[0], lenghtBytes[1]);
-        printf("Text Bytes: %x %x %x %x\n",textBytes[0],textBytes[1],textBytes[2],textBytes[3]);
-        printf("Header And Data Bytes:");
-        for (int i = 0; i < byteLen; i++){
-                printf(" %x", headerAndDataBytes[i]);
-        }
-        printf("\n");
-        printf("CRC32 Bytes: %x %x %x %x\n",crc32Bytes[0],crc32Bytes[1],crc32Bytes[2],crc32Bytes[3]);
-        free(headerAndDataBytes);
-        fclose(fp_in);
-	return 0;
+        fclose(fp_copy);
+        fclose(fp_delete);
+        printf("Успешно!");
+        return 1;
 }
 
 int deleteMetadata(char* filename, char* header, int argc, char** argv) {
-        printf("deleteMetadata %s %s\n",filename, header);
+        struct stat fileInfo;
+        char atimeBufferInput[20];
+        char ctimeBufferInput[20];
+        char mtimeBufferInput[20];
+        int changeAtime = getSystemMarks(argc, argv, "--atime",atimeBufferInput);
+        int changeCtime = getSystemMarks(argc, argv, "--ctime",ctimeBufferInput);
+        int changeMtime = getSystemMarks(argc, argv, "--mtime",mtimeBufferInput);
+        if (stat(filename, &fileInfo) == 0) {
+                char buffer[20];
+
+                time_t mtime = fileInfo.st_mtime;
+                struct tm *tm_info_m = localtime(&mtime);
+                strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_m);
+                if (changeMtime != 0) {
+                    strcpy(mtimeBufferInput, buffer);
+                }
+                time_t atime = fileInfo.st_atime;
+                struct tm *tm_info_a = localtime(&atime);
+                strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_a);
+
+                if (changeAtime != 0) {
+                    strcpy(atimeBufferInput, buffer);
+                }
+
+                time_t ctime = fileInfo.st_ctime;
+                struct tm *tm_info_c = localtime(&ctime);
+                strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_c);
+
+                if (changeCtime != 0) {
+                    strcpy(ctimeBufferInput, buffer);
+                }
+        }
         FILE* fp_in = fopen(filename, "rb");
         if (!fp_in) {
                 printf("Ошибка открытия файла\n");
                 return 1;
         }
-	char headerBytes[4] = {0};
-    	fread(&headerBytes, 4, 1, fp_in);
-    	if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
-        	printf("File Type: PNG \n");
-        	return deleteMetadataPNG(fp_in, header, filename);
-    	}
-        fclose(fp_in);
+        char headerBytes[4] = {0};
+        fread(&headerBytes, 4, 1, fp_in);
+        if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
+                int result = deleteMetadataPNG(fp_in, header, filename);
+        } else {
+                printf("Неподдерживаемый формат файла\n");
+                fclose(fp_in);
+        }
+        struct timespec new_times[2];
+        struct timespec current_time;
+        if (clock_gettime(CLOCK_REALTIME, &current_time)) {
+                printf("\nОшибка при получении текущего системного времени\n");
+                return 1;
+        }
+    
+        struct tm tm_atime = {0}, tm_ctime = {0}, tm_mtime = {0};
+        strptime(atimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_atime);
+        strptime(ctimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_ctime);
+        strptime(mtimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_mtime);
+
+
+        struct timespec new_system_time;
+        new_system_time.tv_sec = mktime(&tm_ctime);
+        new_system_time.tv_nsec = 0;
+        if (clock_settime(CLOCK_REALTIME, &new_system_time)) {
+            perror("\nОшибка при установке системного времени\n");
+            return 1;
+        }
+        
+        new_times[0].tv_sec = mktime(&tm_atime); 
+        new_times[1].tv_sec = mktime(&tm_mtime);  
+        
+        if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
+            printf("\nОшибка при изменении временных меток файла\n");
+            return 1;
+        }
+        printf("\nВременные метки файла успешно изменены.\n");
+        
+        if (clock_settime(CLOCK_REALTIME, &current_time)) {
+            perror("Ошибка при восстановлении системного времени");
+            return 1;
+        }
+
         return 0;
 }
 
@@ -691,13 +765,13 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         fclose(fp_in);
 
         printf("Копирование исходного файла в %s_copy\n", filename);
-        char* new_filename = (char*)malloc(strlen(filename) + strlen("_copy") + 1);
+        char* new_filename = (char*)malloc(strlen(filename) + strlen("_add_copy") + 1);
         if (new_filename == NULL) {
                 printf("Ошибка выделения памяти\n");
                 return 1;
         }
         strcpy(new_filename, filename);
-        strcat(new_filename, "_copy");
+        strcat(new_filename, "_add_copy");
 
         FILE* fp_in_copy = fopen(filename, "rb");
         FILE* fp_out_copy = fopen(new_filename, "wb");
@@ -804,13 +878,38 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         free(new_filename);
 }
 int addMetadata(char* filename, char* header, char* data, int argc, char** argv) {
+        struct stat fileInfo;
         char atimeBufferInput[20];
         char ctimeBufferInput[20];
         char mtimeBufferInput[20];
         int changeAtime = getSystemMarks(argc, argv, "--atime",atimeBufferInput);
         int changeCtime = getSystemMarks(argc, argv, "--ctime",ctimeBufferInput);
         int changeMtime = getSystemMarks(argc, argv, "--mtime",mtimeBufferInput);
-    
+        if (stat(filename, &fileInfo) == 0) {
+                char buffer[20];
+
+                time_t mtime = fileInfo.st_mtime;
+                struct tm *tm_info_m = localtime(&mtime);
+                strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_m);
+                if (changeMtime != 0) {
+                    strcpy(mtimeBufferInput, buffer);
+                }
+                time_t atime = fileInfo.st_atime;
+                struct tm *tm_info_a = localtime(&atime);
+                strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_a);
+
+                if (changeAtime != 0) {
+                    strcpy(atimeBufferInput, buffer);
+                }
+
+                time_t ctime = fileInfo.st_ctime;
+                struct tm *tm_info_c = localtime(&ctime);
+                strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info_c);
+
+                if (changeCtime != 0) {
+                    strcpy(ctimeBufferInput, buffer);
+                }
+        }
         FILE* fp_in = fopen(filename, "rb");
         if (!fp_in) {
                 printf("Ошибка открытия файла\n");
@@ -820,7 +919,9 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
         fread(&headerBytes, 4, 1, fp_in);
         if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
-                return result;
+        } else {
+                printf("Неподдерживаемый формат файла\n");
+                fclose(fp_in);
         }
         struct timespec new_times[2];
         struct timespec current_time;
