@@ -273,6 +273,10 @@ int readMetadataPNG(FILE* fp_in) {
     return 0;
 }
 
+int readMetadataJPEG(FILE* fp_in) {
+        return 0;
+}
+
 int readMetadata(char* filename, int argc, char** argv){
     printf("Системная информация о файле\n");
     printf("----------------------------\n");
@@ -329,14 +333,23 @@ int readMetadata(char* filename, int argc, char** argv){
         printf("Ошибка открытия файла\n");
         return 1;
     }
-    char headerBytes[4] = {0};
-    fread(&headerBytes, 4, 1, fp_in);
-    if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
+    unsigned char headerBytes[4] = {0};
+    fread(&headerBytes, 1, 4, fp_in);
+    if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
         printf("\nВнутренние данные файла\n");
         printf("-----------------------\n");
         printf("Тип файла: PNG \n");
         printf("MIME Тип: image/png\n");
         readMetadataPNG(fp_in);
+    } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
+        printf("\nВнутренние данные файла\n");
+        printf("-----------------------\n");
+        printf("Тип файла: JPEG \n");
+        printf("MIME Тип: image/jpg\n");
+        readMetadataJPEG(fp_in);
+    } else {
+        printf("Неподдерживаемый формат файла\n");
+        fclose(fp_in);
     }
     fclose(fp_in);
     
@@ -529,9 +542,9 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
                 printf("Ошибка открытия файла\n");
                 return 1;
         }
-        char headerBytes[4] = {0};
-        fread(&headerBytes, 4, 1, fp_in);
-        if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
+        unsigned char headerBytes[4] = {0};
+        fread(&headerBytes, 1, 4, fp_in);
+        if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = deleteMetadataPNG(fp_in, header, filename);
         } else {
                 printf("Неподдерживаемый формат файла\n");
@@ -929,9 +942,9 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
                 printf("Ошибка открытия файла\n");
                 return 1;
         }
-        char headerBytes[4] = {0};
-        fread(&headerBytes, 4, 1, fp_in);
-        if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
+        unsigned char headerBytes[4] = {0};
+        fread(&headerBytes, 1, 4, fp_in);
+        if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
         } else {
                 printf("Неподдерживаемый формат файла\n");
@@ -1330,9 +1343,9 @@ int updateMetadata(char* filename, char* header, char* data, int argc, char** ar
                 printf("Ошибка открытия файла\n");
                 return 1;
         }
-        char headerBytes[4] = {0};
-        fread(&headerBytes, 4, 1, fp_in);
-        if (headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
+        unsigned char headerBytes[4] = {0};
+        fread(&headerBytes, 1, 4, fp_in);
+        if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = updateMetadataPNG(fp_in, header, data, filename, argc, argv);
         } else {
                 printf("Неподдерживаемый формат файла\n");
