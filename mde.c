@@ -274,6 +274,40 @@ int readMetadataPNG(FILE* fp_in) {
 }
 
 int readMetadataJPEG(FILE* fp_in) {
+        unsigned char currentByte = 0x00;
+        if (!fp_in) {
+                return 1;
+        }
+        while(fread(&currentByte,1,1,fp_in) == 1) {
+                if (currentByte == 0xff) {
+                        fread(&currentByte,1,1,fp_in);
+                        if (currentByte == 0xc0) {
+                                printf("Тип маркера: SOF0 (Baseline DCT)\n");
+                        } else if (currentByte == 0xc1) {
+                                printf("Тип маркера: SOF1 (Extended Sequential DCT)\n");
+                        } else if (currentByte == 0xc2) {
+                                printf("Тип маркера: SOF2 (Progressive DCT)\n");
+                        } else if (currentByte == 0xc3) {
+                                printf("Тип маркера: SOF3 (Lossless)\n");
+                        } else {
+                                fseek(fp_in,-1,SEEK_CUR);
+                                continue;
+                        }
+                        fseek(fp_in,2,SEEK_CUR);
+                        unsigned char imageInfo[5] = {0};
+                        int readResult = fread(&imageInfo,1,5,fp_in);
+                        if (readResult != 5) {
+                                continue;
+                        }
+                        u_int8_t accuracy = imageInfo[0];
+                        u_int16_t height = (imageInfo[1] << 8) | imageInfo[2];
+                        u_int16_t width = (imageInfo[3] << 8) | imageInfo[4];
+                        printf("Точность: %d бит на компонент\n", accuracy);
+                        printf("Ширина изображения: %d\n", width);
+                        printf("Высота изображения: %d\n", height);
+                        
+                }
+        }
         return 0;
 }
 
