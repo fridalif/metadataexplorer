@@ -279,34 +279,72 @@ int readMetadataJPEG(FILE* fp_in) {
                 return 1;
         }
         while(fread(&currentByte,1,1,fp_in) == 1) {
-                if (currentByte == 0xff) {
-                        fread(&currentByte,1,1,fp_in);
-                        if (currentByte == 0xc0) {
-                                printf("Тип маркера: SOF0 (Baseline DCT)\n");
-                        } else if (currentByte == 0xc1) {
-                                printf("Тип маркера: SOF1 (Extended Sequential DCT)\n");
-                        } else if (currentByte == 0xc2) {
-                                printf("Тип маркера: SOF2 (Progressive DCT)\n");
-                        } else if (currentByte == 0xc3) {
-                                printf("Тип маркера: SOF3 (Lossless)\n");
-                        } else {
-                                fseek(fp_in,-1,SEEK_CUR);
+                if (currentByte == 0x4a) {
+                        unsigned char bytesFIF[3] = {0};
+                        int readRes = fread(&bytesFIF,1,3,fp_in);
+                        if (readRes!=3) {
                                 continue;
                         }
-                        fseek(fp_in,2,SEEK_CUR);
-                        unsigned char imageInfo[5] = {0};
-                        int readResult = fread(&imageInfo,1,5,fp_in);
-                        if (readResult != 5) {
+                        if (bytesFIF[0]!=0x46 || bytesFIF[1]!=0x49 || bytesFIF[2]!=0x46) {
+                                fseek(fp_in,-3, SEEK_CUR);
                                 continue;
                         }
-                        u_int8_t accuracy = imageInfo[0];
-                        u_int16_t height = (imageInfo[1] << 8) | imageInfo[2];
-                        u_int16_t width = (imageInfo[3] << 8) | imageInfo[4];
-                        printf("Точность: %d бит на компонент\n", accuracy);
-                        printf("Ширина изображения: %d\n", width);
-                        printf("Высота изображения: %d\n", height);
-                        
+                        unsigned char infoBytes[7] = {0};
+                        readRes = fread(&infoBytes,1,7,fp_in);
+                        if (readRes!=7) {
+                                continue;
+                        }
+                        u_int16_t jfifVersion = (infoBytes[0]<<8) | infoBytes[1];
+                        printf("Версия JFIF: 1.%02d\n",jfifVersion);
+                        switch (infoBytes[2]) {
+                                case 0x00:
+                                        printf("Единица измерения разрешения: Нет\n");
+                                        break;
+                                case 0x01:
+                                        printf("Единица измерения разрешения: Точки на дюйм\n");
+                                        break;
+                                case 0x02:
+                                        printf("Единица измерения разрешения: Точки на сантиметр\n");
+                                        break;
+                                default:
+                                        printf("Единица измерения разрешения: Неизвестно\n");
+                                        break;
+                        }
+                        u_int16_t horizontalResolution = (infoBytes[3]<<8) | infoBytes[4];
+                        u_int16_t verticalResolution = (infoBytes[5]<<8) | infoBytes[6];
+                        printf("Горизонтальное разрешение: %d\n", horizontalResolution);
+                        printf("Вертикальное разрешение: %d\n", verticalResolution);
+                        continue;
                 }
+                if (currentByte != 0xff) {
+                        continue;
+                }
+                fread(&currentByte,1,1,fp_in);
+                
+                if (currentByte == 0xc0) {
+                        printf("Тип маркера: SOF0 (Baseline DCT)\n");
+                } else if (currentByte == 0xc1) {
+                        printf("Тип маркера: SOF1 (Extended Sequential DCT)\n");
+                } else if (currentByte == 0xc2) {
+                        printf("Тип маркера: SOF2 (Progressive DCT)\n");
+                } else if (currentByte == 0xc3) {
+                        printf("Тип маркера: SOF3 (Lossless)\n");
+                } else {
+                        fseek(fp_in,-1,SEEK_CUR);
+                        continue;
+                }
+                fseek(fp_in,2,SEEK_CUR);
+                unsigned char imageInfo[5] = {0};
+                int readResult = fread(&imageInfo,1,5,fp_in);
+                if (readResult != 5) {
+                        continue;
+                }
+                u_int8_t accuracy = imageInfo[0];
+                u_int16_t height = (imageInfo[1] << 8) | imageInfo[2];
+                u_int16_t width = (imageInfo[3] << 8) | imageInfo[4];
+                printf("Точность: %d бит на компонент\n", accuracy);
+                printf("Ширина изображения: %d\n", width);
+                printf("Высота изображения: %d\n", height);
         }
         return 0;
 }
@@ -379,7 +417,7 @@ int readMetadata(char* filename, int argc, char** argv){
         printf("\nВнутренние данные файла\n");
         printf("-----------------------\n");
         printf("Тип файла: JPEG \n");
-        printf("MIME Тип: image/jpg\n");
+        printf("MIME Тип: image/jpeg\n");
         readMetadataJPEG(fp_in);
     } else {
         printf("Неподдерживаемый формат файла\n");
