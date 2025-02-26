@@ -84,27 +84,27 @@ unsigned int crc32b(unsigned char *message, int len) {
 
 
 int readMetadataPNG(FILE* fp_in) {
-    char lastByte;
-    char currentByte;
+    unsigned char lastByte;
+    unsigned char currentByte;
     if (!fp_in) {
         return 1;
     }
     while (fread(&currentByte, 1, 1, fp_in) == 1){
         if (currentByte == 0x74){
-            char bytes[3] = {0};
-            fread(&bytes, 3 ,1, fp_in);
+            unsigned char bytes[3] = {0};
+            fread(bytes, 3 ,1, fp_in);
             if (bytes[0]!=0x45 || bytes[1]!=0x58 || bytes[2] != 0x74){
                 fseek(fp_in, -3, SEEK_CUR);
             } else {
                 fseek(fp_in, -8, SEEK_CUR);
                 unsigned char lengthBytes[4] = {0};
-                fread(&lengthBytes,4,1,fp_in);
+                fread(lengthBytes,4,1,fp_in);
                 fseek(fp_in, 4, SEEK_CUR);
 		u_int32_t remain = (lengthBytes[0] << 24) | (lengthBytes[1] << 16) | (lengthBytes[2] << 8) | lengthBytes[3];
 		u_int32_t tempRemain = remain;
-		char* metaData = (char*) malloc((remain + 1) * sizeof(char));
+		unsigned char* metaData = (unsigned char*) malloc((remain + 1) * sizeof(char));
 		while (remain>0 && fp_in) {
-		    char metaDataByte;
+		    unsigned char metaDataByte;
 		    fread(&metaDataByte, 1, 1, fp_in);
 		    if (metaDataByte == 0x00) {
 			metaData[tempRemain-remain] = ':';
@@ -122,21 +122,21 @@ int readMetadataPNG(FILE* fp_in) {
 		free(metaData);
 	    }
         } else if (currentByte == 0x49){
-	    char bytes[3] = {0};
-	    fread(&bytes, 3 ,1, fp_in);
+	    unsigned char bytes[3] = {0};
+	    fread(bytes, 3 ,1, fp_in);
             if (bytes[0]==0x44 || bytes[1]==0x41 || bytes[2] == 0x54){
 		break;
             }
             if (bytes[0] == 0x48 && bytes[1] == 0x44 && bytes[2] == 0x52){
                 unsigned char widthBytes[4] = {0};
-                fread(&widthBytes, 4 ,1, fp_in);
+                fread(widthBytes, 4 ,1, fp_in);
                 u_int32_t width = (u_int32_t)((widthBytes[0] << 24) |
                                  (widthBytes[1] << 16) |
                                  (widthBytes[2] << 8)  |
                                  (widthBytes[3]));
                 printf("Ширина изображения: %u\n",width);
                 unsigned char heightBytes[4] = {0};
-                fread(&heightBytes, 4 ,1, fp_in);
+                fread(heightBytes, 4 ,1, fp_in);
                 u_int32_t height = (u_int32_t)((heightBytes[0] << 24) |
                                  (heightBytes[1] << 16) |
                                  (heightBytes[2] << 8)  |
@@ -233,18 +233,18 @@ int readMetadataPNG(FILE* fp_in) {
             }
 	    fseek(fp_in, -3, SEEK_CUR);
 	} else if (currentByte == 0x70) {
-            char bytes[3] = {0};
-	    fread(&bytes, 3 ,1, fp_in);
+            unsigned char bytes[3] = {0};
+	    fread(bytes, 3 ,1, fp_in);
             if (bytes[0]==0x48 || bytes[1]==59 || bytes[2] == 0x73){
                 unsigned char horizontalBytes[4] = {0};
-                fread(&horizontalBytes, 4 ,1, fp_in);
+                fread(horizontalBytes, 4 ,1, fp_in);
                 u_int32_t horizontal = (u_int32_t)((horizontalBytes[0] << 24) |
                                  (horizontalBytes[1] << 16) |
                                  (horizontalBytes[2] << 8)  |
                                  (horizontalBytes[3]));
                 printf("Горизонтальное разрешение: %u\n",horizontal);
                 unsigned char verticalBytes[4] = {0};
-                fread(&verticalBytes, 4 ,1, fp_in);
+                fread(verticalBytes, 4 ,1, fp_in);
                 u_int32_t vertical = (u_int32_t)((verticalBytes[0] << 24) |
                                  (verticalBytes[1] << 16) |
                                  (verticalBytes[2] << 8)  |
@@ -281,7 +281,7 @@ int readMetadataJPEG(FILE* fp_in) {
         while(fread(&currentByte,1,1,fp_in) == 1) {
                 if (currentByte == 0x4a) {
                         unsigned char bytesFIF[3] = {0};
-                        int readRes = fread(&bytesFIF,1,3,fp_in);
+                        int readRes = fread(bytesFIF,1,3,fp_in);
                         if (readRes!=3) {
                                 continue;
                         }
@@ -290,7 +290,7 @@ int readMetadataJPEG(FILE* fp_in) {
                                 continue;
                         }
                         unsigned char infoBytes[7] = {0};
-                        readRes = fread(&infoBytes,1,7,fp_in);
+                        readRes = fread(infoBytes,1,7,fp_in);
                         if (readRes!=7) {
                                 continue;
                         }
@@ -320,7 +320,19 @@ int readMetadataJPEG(FILE* fp_in) {
                         continue;
                 }
                 fread(&currentByte,1,1,fp_in);
-                
+                if (currentByte == 0xfe) {
+                        unsigned char lenghtBytes[2] = {0x00};
+                        int result = fread(lenghtBytes,1,2,fp_in);
+                        if (result!=2) {
+                                continue;
+                        }
+                        u_int16_t length = (lenghtBytes[0]<<8) | lenghtBytes[1];
+                        length = length -2;
+                        unsigned char* comment = (unsigned char*)malloc(length+1);
+                        fread(comment,1,length,fp_in);
+                        printf("Найден комментарий: %s\n",comment);
+                        free(comment);
+                }
                 if (currentByte == 0xc0) {
                         printf("Тип маркера: SOF0 (Baseline DCT)\n");
                 } else if (currentByte == 0xc1) {
@@ -335,7 +347,7 @@ int readMetadataJPEG(FILE* fp_in) {
                 }
                 fseek(fp_in,2,SEEK_CUR);
                 unsigned char imageInfo[5] = {0};
-                int readResult = fread(&imageInfo,1,5,fp_in);
+                int readResult = fread(imageInfo,1,5,fp_in);
                 if (readResult != 5) {
                         continue;
                 }
@@ -406,7 +418,7 @@ int readMetadata(char* filename, int argc, char** argv){
         return 1;
     }
     unsigned char headerBytes[4] = {0};
-    fread(&headerBytes, 1, 4, fp_in);
+    fread(headerBytes, 1, 4, fp_in);
     if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
         printf("\nВнутренние данные файла\n");
         printf("-----------------------\n");
@@ -509,7 +521,7 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
         int result = 0;
         currentByte = 0x00;
         while(1){
-                result = fread(&currentBytes,1, 8, fp_copy);
+                result = fread(currentBytes,1, 8, fp_copy);
                 if (result == 0){
                         break;
                 }
@@ -615,7 +627,7 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
                 return 1;
         }
         unsigned char headerBytes[4] = {0};
-        fread(&headerBytes, 1, 4, fp_in);
+        fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = deleteMetadataPNG(fp_in, header, filename);
         } else {
@@ -714,11 +726,11 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         unsigned char oldHeader[17] = {0};
         int headerFound = 0;
         if (fp_in) {
-                char currentByte = 0x00;
+                unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x49) {
-                                char bytesHDR[3] = {0};
-                                fread(&bytesHDR,3,1,fp_in);
+                                unsigned char bytesHDR[3] = {0};
+                                fread(bytesHDR,3,1,fp_in);
                                 if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x44 || bytesHDR[2]!=0x52){
                                         fseek(fp_in, -3, SEEK_CUR);
                                         continue;
@@ -803,11 +815,11 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         int physFound = -1;
         unsigned char oldPhys[13] = {0};
         if (fp_in) {
-                char currentByte = 0x00;
+                unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x70) {
-                                char bytesHDR[3] = {0};
-                                fread(&bytesHDR,3,1,fp_in);
+                                unsigned char bytesHDR[3] = {0};
+                                fread(bytesHDR,3,1,fp_in);
                                 if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x59 || bytesHDR[2]!=0x73){
                                         fseek(fp_in, -3, SEEK_CUR);
                                         continue;
@@ -893,7 +905,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
              while (fread(&currentByte, 1, 1, fp_in_copied) == 1) {
                 if (currentByte == 0x49) {
                         unsigned char bytesHDR[3] = {0};
-                        fread(&bytesHDR,3,1,fp_in_copied);
+                        fread(bytesHDR,3,1,fp_in_copied);
                         if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x44 || bytesHDR[2]!=0x52){
                                 fseek(fp_in_copied, -3, SEEK_CUR);
                                 fwrite(&currentByte,1,1,fp_out);
@@ -921,7 +933,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                                 bytes[2] = (length >> 8) & 0xFF;
                                 bytes[3] = (length >> 0) & 0xFF;
 
-                                char* newMetadata = (char*)malloc(length+4);
+                                unsigned char* newMetadata = (unsigned char*)malloc(length+4);
                                 newMetadata[0] = 0x74;
                                 newMetadata[1] = 0x45;
                                 newMetadata[2] = 0x58;
@@ -945,7 +957,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 }
                 if (currentByte == 0x70) {
                         unsigned char bytesHys[3] = {0};
-                        fread(&bytesHys,3,1,fp_in_copied);
+                        fread(bytesHys,3,1,fp_in_copied);
                         if (bytesHys[0]!=0x48 || bytesHys[1]!=0x59 || bytesHys[2]!=0x73){
                                 fseek(fp_in_copied, -3, SEEK_CUR);
                                 fwrite(&currentByte,1,1,fp_out);
@@ -1015,7 +1027,7 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
                 return 1;
         }
         unsigned char headerBytes[4] = {0};
-        fread(&headerBytes, 1, 4, fp_in);
+        fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
         } else {
@@ -1091,11 +1103,11 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         unsigned char oldHeader[17] = {0};
         int headerFound = 0;
         if (fp_in) {
-                char currentByte = 0x00;
+                unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x49) {
-                                char bytesHDR[3] = {0};
-                                fread(&bytesHDR,3,1,fp_in);
+                                unsigned char bytesHDR[3] = {0};
+                                fread(bytesHDR,3,1,fp_in);
                                 if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x44 || bytesHDR[2]!=0x52){
                                         fseek(fp_in, -3, SEEK_CUR);
                                         continue;
@@ -1181,11 +1193,11 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         int physFound = -1;
         unsigned char oldPhys[13] = {0};
         if (fp_in) {
-                char currentByte = 0x00;
+                unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x70) {
-                                char bytesHDR[3] = {0};
-                                fread(&bytesHDR,3,1,fp_in);
+                                unsigned char bytesHDR[3] = {0};
+                                fread(bytesHDR,3,1,fp_in);
                                 if (bytesHDR[0]!=0x48 || bytesHDR[1]!=0x59 || bytesHDR[2]!=0x73){
                                         fseek(fp_in, -3, SEEK_CUR);
                                         continue;
@@ -1254,7 +1266,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         FILE* fp_out_copy = fopen(new_filename, "wb");
         
         if (fp_in_copy && fp_out_copy) {
-                char currentByte = 0x00;
+                unsigned char currentByte = 0x00;
                 while (fread(&currentByte, 1, 1, fp_in_copy) == 1) {
                         fwrite(&currentByte, 1, 1, fp_out_copy);
                 }
@@ -1348,7 +1360,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                 bytes[1] = (newLength >> 16) & 0xFF;
                 bytes[2] = (newLength >> 8) & 0xFF;
                 bytes[3] = (newLength >> 0) & 0xFF;
-                char* newMetadata = (char*)malloc(newLength+4);
+                unsigned char* newMetadata = (unsigned char*)malloc(newLength+4);
                 newMetadata[0] = 0x74;
                 newMetadata[1] = 0x45;
                 newMetadata[2] = 0x58;
@@ -1416,7 +1428,7 @@ int updateMetadata(char* filename, char* header, char* data, int argc, char** ar
                 return 1;
         }
         unsigned char headerBytes[4] = {0};
-        fread(&headerBytes, 1, 4, fp_in);
+        fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = updateMetadataPNG(fp_in, header, data, filename, argc, argv);
         } else {
