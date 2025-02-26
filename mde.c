@@ -290,8 +290,8 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 		if (currentByte == 0x01){
 			counter++;
 			fread(&currentByte,1,1,fp_in);
-			//0x0e - imDescr, 0x0f - camera maker, 0x10 - cameraModel
-			if (currentByte != 0x0e && currentByte!=0x0f && currentByte!=0x10){
+			//0x0e - imDescr, 0x0f - camera maker, 0x10 - cameraModel, 0x32 - DateTime
+			if (currentByte != 0x0e && currentByte!=0x0f && currentByte!=0x10 && currentByte!=0x32){
 				fseek(fp_in,-1,SEEK_CUR);
 				counter--;
 				continue;
@@ -302,6 +302,9 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			}
 			if (currentByte == 0x10){
 				isCamera = -1;
+			}
+			if (currentByte == 0x32) {
+				isCamera = 2;
 			}
 			counter+=2;
 			fseek(fp_in,2,SEEK_CUR);
@@ -338,6 +341,9 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			} else if (isCamera == -1) {
 				printf("Модель: %s\n",imageDescription);
 				printf("Модель в байтах:");
+			} else if (isCamera == 2) {
+				printf("Дата и время: %s\n",imageDescription);
+				printf("Дата и время в байтах:");
 			}
 			for (int i = 0; i < tagLength-1; i++) {
 				printf(" %02x", imageDescription[i]);
@@ -452,7 +458,27 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			fseek(fp_in,curPos,SEEK_SET);
 			continue;
 		}
+		if (currentByte == 0x88){
+			result = fread(&currentByte,1,1,fp_in);
+			if (!fp_in || result != 1) {
+				continue;
+			}
+			if (currentByte!=0x27) {
+				fseek(fp_in,-1,SEEK_CUR);
+				continue;
+			}
+			fseek(fp_in,6,SEEK_CUR);
+			unsigned char isoFormatBytes[4] = {0x00};
+			result = fread(isoFormatBytes,1,4,fp_in);
+			if (!fp_in || result!=4) {
+				continue;
+			}
+			u_int32_t isoFormat = (isoFormatBytes[0]<<24) | (isoFormatBytes[1]<<16) | (isoFormatBytes[2]<<8) | isoFormatBytes[3];
+			printf("ISO чувствительность: ISO %d\n",isoFormat);
+			continue;
+		}
 
+		
         }
         return 0;
 }
