@@ -290,10 +290,18 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 		if (currentByte == 0x01){
 			counter++;
 			fread(&currentByte,1,1,fp_in);
-			if (currentByte != 0x0e){
+			//0x0e - imDescr, 0x0f - camera maker, 0x10 - cameraModel
+			if (currentByte != 0x0e && currentByte!=0x0f && currentByte!=0x10){
 				fseek(fp_in,-1,SEEK_CUR);
 				counter--;
 				continue;
+			}
+			int isCamera = 0;
+			if (currentByte == 0x0f){
+				isCamera = 1;
+			}
+			if (currentByte == 0x10){
+				isCamera = -1;
 			}
 			counter+=2;
 			fseek(fp_in,2,SEEK_CUR);
@@ -321,8 +329,16 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			unsigned char* imageDescription = (unsigned char*)malloc(tagLength+1);
 			fread(imageDescription,1,tagLength,fp_in);
 			imageDescription[tagLength] = '\0';
-			printf("Описание изображения: %s\n",imageDescription);
-			printf("Описание изображения в байтах:");
+			if (isCamera == 0) {
+				printf("Описание изображения: %s\n",imageDescription);
+				printf("Описание изображения в байтах:");
+			} else if (isCamera == 1) {
+				printf("Производитель: %s\n",imageDescription);
+				printf("Производитель в байтах:");
+			} else if (isCamera == -1) {
+				printf("Модель: %s\n",imageDescription);
+				printf("Модель в байтах:");
+			}
 			for (int i = 0; i < tagLength-1; i++) {
 				printf(" %02x", imageDescription[i]);
 			}
@@ -371,7 +387,7 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			printf("Формат пользовательского комментария: %s\n", commentType);
 			printf("Пользовательский комментарий: %s\n",userComment);
 			printf("Пользовательский комментарий в байтах:");
-			for (int i = 0; i < tagLength-2-8; i++) {
+			for (int i = 0; i < tagLength-8; i++) {
 				printf(" %02x", userComment[i]);
 			}
 			printf("\n");
@@ -380,6 +396,7 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			fseek(fp_in,curPos,SEEK_SET);
 			continue;
 		}
+		///!!
 
         }
         return 0;
