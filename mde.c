@@ -280,11 +280,56 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
         if (!fp_in){
                 return 1;
         }
-        for (long counter; counter < (long)length; counter++){
+	int result = 0;
+        for (long counter = 0; counter < (long)length; counter++){
+		result = fread(&currentByte,1,1,fp_in);
+		if (result<=0 || !fp_in){
+			break;
+		}
+		//ImageDescription
+		if (currentByte == 0x01){
+			counter++;
+			fread(&currentByte,1,1,fp_in);
+			if (currentByte != 0x0e){
+				fseek(fp_in,-1,SEEK_CUR);
+				counter--;
+				continue;
+			}
+			counter+=2;
+			fseek(fp_in,2,SEEK_CUR);
+			unsigned char tagLengthBytes[4] = {0};
+			result = fread(tagLengthBytes,1,4,fp_in);
+			if (result!=4 || !fp_in){
+				fseek(fp_in,-4,SEEK_CUR);
+				continue;
+			}
+			counter+=4;
+			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+			unsigned char tagShiftBytes[4] = {0};
+			result = fread(tagShiftBytes,1,4,fp_in);
+			if (result!=4 || !fp_in){
+				fseek(fp_in,-4,SEEK_CUR);
+				continue;
+			}
+			counter+=4;
+			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+			long curPos = ftell(fp_in);
+			
+			fseek(fp_in,tiffStart,SEEK_SET);
+			fseek(fp_in,tagShift,SEEK_CUR);
 
+			unsigned char* imageDescription = (unsigned char*)malloc(tagLength+1);
+			fread(imageDescription,1,tagLength,fp_in);
+			imageDescription[tagLength] = '\0';
+			printf("Описание изображения:%s\n",imageDescription);
+			free(imageDescription);
+
+			fseek(fp_in,curPos,SEEK_SET);
+		}
         }
         return 0;
 }
+
 int readMetadataJPEG(FILE* fp_in) {
         unsigned char currentByte = 0x00;
         if (!fp_in) {
