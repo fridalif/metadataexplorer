@@ -330,7 +330,57 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			free(imageDescription);
 
 			fseek(fp_in,curPos,SEEK_SET);
+			continue;
 		}
+		if (currentByte=0x92){
+			counter++;
+			fread(&currentByte,1,1,fp_in);
+			if (currentByte != 0x86){
+				fseek(fp_in,-1,SEEK_CUR);
+				counter--;
+				continue;
+			}
+			counter+=2;
+			fseek(fp_in,2,SEEK_CUR);
+			unsigned char tagLengthBytes[4] = {0};
+			result = fread(tagLengthBytes,1,4,fp_in);
+			if (result!=4 || !fp_in){
+				fseek(fp_in,-4,SEEK_CUR);
+				continue;
+			}
+			counter+=4;
+			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+			unsigned char tagShiftBytes[4] = {0};
+			result = fread(tagShiftBytes,1,4,fp_in);
+			if (result!=4 || !fp_in){
+				fseek(fp_in,-4,SEEK_CUR);
+				continue;
+			}
+			counter+=4;
+			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+			long curPos = ftell(fp_in);
+			
+			fseek(fp_in,tiffStart,SEEK_SET);
+			fseek(fp_in,tagShift,SEEK_CUR);
+
+			unsigned char* userComment = (unsigned char*)malloc(tagLength+1-8);
+			unsigned char commentType[8];
+			fread(commentType,1,8,fp_in);
+			commentType[8] = '\0';
+			fread(userComment,1,tagLength-8,fp_in);
+			printf("Формат пользовательского комментария: %s\n", commentType);
+			printf("Пользовательский комментарий: %s\n",userComment);
+			printf("Пользовательский комментарий в байтах:");
+			for (int i = 0; i < tagLength-2-8; i++) {
+				printf(" %02x", userComment[i]);
+			}
+			printf("\n");
+			free(userComment);
+
+			fseek(fp_in,curPos,SEEK_SET);
+			continue;
+		}
+
         }
         return 0;
 }
