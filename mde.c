@@ -280,6 +280,10 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
         if (!fp_in){
                 return 1;
         }
+	double longitude[3] = {-200.0, -200.0, -200.0};
+	double latitude[3] = {-200.0, -200.0, -200.0};
+	int isLongitudeEast = 0;
+	int isLatitudeSouth = 0;
 	int result = 0;
         for (long counter = 0; counter < (long)length; counter++){
 		result = fread(&currentByte,1,1,fp_in);
@@ -448,9 +452,9 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			u_int32_t numerator = (exposureTimeBytes[0]<<24) | (exposureTimeBytes[1]<<16) | (exposureTimeBytes[2]<<8) | exposureTimeBytes[3];
 			u_int32_t denominator = (exposureTimeBytes[4]<<24) | (exposureTimeBytes[5]<<16) | (exposureTimeBytes[6]<<8) | exposureTimeBytes[7];
 			if (isExposure == 1) {
-				printf("Время экспозиции: %.2lf секунд\n",numerator/(denominator*1.0));
+				printf("Время экспозиции: %.2f секунд\n",numerator/(denominator*1.0));
 			} else if (isExposure == 0) {
-				printf("Апертура: %.2lf\n",numerator/(denominator*1.0));
+				printf("Апертура: %.2f\n",numerator/(denominator*1.0));
 			}
 
 			free(exposureTimeBytes);
@@ -478,8 +482,137 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			continue;
 		}
 
+		//Gelocation
+		if (currentByte == 0x00){
+			counter++;
+			fread(&currentByte,1,1,fp_in);
+			//longitude and latitude
+			if (currentByte == 0x02 || currentByte != 0x04) {
+				int isLat = 0;
+				if (currentByte == 0x02) {
+					isLat = 1;
+				}
+				counter+=2;
+				fseek(fp_in,2,SEEK_CUR);
+				unsigned char tagLengthBytes[4] = {0};
+				result = fread(tagLengthBytes,1,4,fp_in);
+				if (result!=4 || !fp_in){
+					fseek(fp_in,-4,SEEK_CUR);
+					continue;
+				}
+				counter+=4;
+				u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+				unsigned char tagShiftBytes[4] = {0};
+				result = fread(tagShiftBytes,1,4,fp_in);
+				if (result!=4 || !fp_in){
+					fseek(fp_in,-4,SEEK_CUR);
+					continue;
+				}
+				counter+=4;
+				u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+				long curPos = ftell(fp_in);
+
+				fseek(fp_in,tiffStart,SEEK_SET);
+				fseek(fp_in,tagShift,SEEK_CUR);
+
+				unsigned char coordinatesBytes[24] = {0x00};
+				fread(coordinatesBytes,1,24,fp_in);
+
+				u_int32_t numeratorGrad = (coordinatesBytes[0]<<24) | (coordinatesBytes[1]<<16) | (coordinatesBytes[2]<<8) | coordinatesBytes[3];
+				u_int32_t denominatorGrad = (coordinatesBytes[4]<<24) | (coordinatesBytes[5]<<16) | (coordinatesBytes[6]<<8) | coordinatesBytes[7];
+				u_int32_t numeratorMin = (coordinatesBytes[8]<<24) | (coordinatesBytes[9]<<16) | (coordinatesBytes[10]<<8) | coordinatesBytes[11];
+				u_int32_t denominatorMin = (coordinatesBytes[12]<<24) | (coordinatesBytes[13]<<16) | (coordinatesBytes[14]<<8) | coordinatesBytes[15];
+				u_int32_t numeratorSec = (coordinatesBytes[16]<<24) | (coordinatesBytes[17]<<16) | (coordinatesBytes[18]<<8) | coordinatesBytes[19];
+				u_int32_t denominatorSec = (coordinatesBytes[20]<<24) | (coordinatesBytes[21]<<16) | (coordinatesBytes[22]<<8) | coordinatesBytes[23];
+				
+				if (isLat == 1) {
+					latitude[0] = numeratorGrad/(denominatorGrad*1.0);
+					latitude[1] = numeratorMin/(denominatorMin*1.0);
+					latitude[2] = numeratorSec/(denominatorSec*1.0);
+				} else {
+					longitude[0] = numeratorGrad/(denominatorGrad*1.0);
+					longitude[1] = numeratorMin/(denominatorMin*1.0);
+					longitude[2] = numeratorSec/(denominatorSec*1.0);
+				}
+				
+				fseek(fp_in,curPos,SEEK_SET);
+				continue;	
+			}
+			//refs
+			if (currentByte == 0x01 || currentByte == 0x03) {
+				int isLat = 0;
+				if (currentByte == 0x01) {
+					isLat = 1;
+				}
+				counter+=2;
+				fseek(fp_in,2,SEEK_CUR);
+				unsigned char tagLengthBytes[4] = {0};
+				result = fread(tagLengthBytes,1,4,fp_in);
+				if (result!=4 || !fp_in){
+					fseek(fp_in,-4,SEEK_CUR);
+					continue;
+				}
+				counter+=4;
+				u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+				unsigned char tagShiftBytes[4] = {0};
+				result = fread(tagShiftBytes,1,4,fp_in);
+				if (result!=4 || !fp_in){
+					fseek(fp_in,-4,SEEK_CUR);
+					continue;
+				}
+				counter+=4;
+				u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+				long curPos = ftell(fp_in);
+
+				fseek(fp_in,tiffStart,SEEK_SET);
+				fseek(fp_in,tagShift,SEEK_CUR);
+
+				unsigned char refBute = 0x00;
+				fread(&refBute,1,1,fp_in);
+				if (isLat) {
+					if (refBute == 0x4e) {
+						isLatitudeSouth = -1;
+					} else {
+						isLatitudeSouth = 1;
+					}
+				} else {
+					if (refBute == 0x57) {
+						isLongitudeEast = -1;
+					} else {
+						isLongitudeEast = 1;
+					}
+				}
+
+				fseek(fp_in,curPos,SEEK_SET);
+				
+				continue;
+			}
+			fseek(fp_in,-1,SEEK_CUR);
+			counter--;
+			continue;
+			
+		}
 		
         }
+
+	if (longitude[0]!=-200.0 || longitude[1]!=-200.0 || longitude[2]!=-200.0) {
+		printf("Долгота: %.0f градусов %.0f минут %.0f секунд",longitude[0],longitude[1],longitude[2]);
+		if (isLongitudeEast == 1) {
+			printf(" восточной долготы");
+		} else if (isLongitudeEast == -1) {
+			printf(" западной долготы");
+		}
+		printf("\n");
+	}
+	if (latitude[0]!=-200.0 || latitude[1]!=-200.0 || latitude[2]!=-200.0) {
+		printf("Широта: %.0f градусов %.0f минут %.0f секунд",latitude[0],latitude[1],latitude[2]);
+		if (isLatitudeSouth == 1) {
+			printf(" южной широты");
+		} else if (isLatitudeSouth == -1) {
+			printf(" северной широты");
+		}
+		printf("\n");
+	}
         return 0;
 }
 
