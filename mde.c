@@ -321,7 +321,12 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			unsigned char* imageDescription = (unsigned char*)malloc(tagLength+1);
 			fread(imageDescription,1,tagLength,fp_in);
 			imageDescription[tagLength] = '\0';
-			printf("Описание изображения:%s\n",imageDescription);
+			printf("Описание изображения: %s\n",imageDescription);
+			printf("Описание изображения в байтах:");
+			for (int i = 0; i < tagLength-1; i++) {
+				printf(" %02x", imageDescription[i]);
+			}
+			printf("\n");
 			free(imageDescription);
 
 			fseek(fp_in,curPos,SEEK_SET);
