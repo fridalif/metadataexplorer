@@ -348,6 +348,8 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			fseek(fp_in,curPos,SEEK_SET);
 			continue;
 		}
+
+		//UserComment
 		if (currentByte=0x92){
 			counter++;
 			fread(&currentByte,1,1,fp_in);
@@ -396,7 +398,60 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			fseek(fp_in,curPos,SEEK_SET);
 			continue;
 		}
-		///!!
+
+		//ExposureTime и Aperture
+		if (currentByte == 0x82) {
+			counter++;
+			fread(&currentByte,1,1,fp_in);
+			//0x9a - exposure, 0x9d - aperture
+			if (currentByte != 0x9a && currentByte != 0x9d){
+				fseek(fp_in,-1,SEEK_CUR);
+				counter--;
+				continue;
+			}
+			int isExposure = 1;
+			if (currentByte == 0x9d) {
+				isExposure = 0;
+			}
+			counter+=2;
+			fseek(fp_in,2,SEEK_CUR);
+			unsigned char tagLengthBytes[4] = {0};
+			result = fread(tagLengthBytes,1,4,fp_in);
+			if (result!=4 || !fp_in){
+				fseek(fp_in,-4,SEEK_CUR);
+				continue;
+			}
+			counter+=4;
+			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+			unsigned char tagShiftBytes[4] = {0};
+			result = fread(tagShiftBytes,1,4,fp_in);
+			if (result!=4 || !fp_in){
+				fseek(fp_in,-4,SEEK_CUR);
+				continue;
+			}
+			counter+=4;
+			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+			long curPos = ftell(fp_in);
+			
+			fseek(fp_in,tiffStart,SEEK_SET);
+			fseek(fp_in,tagShift,SEEK_CUR);
+
+			unsigned char* exposureTimeBytes = (unsigned char*)malloc(tagLength);
+			fread(exposureTimeBytes,1,tagLength,fp_in);
+
+			u_int32_t numerator = (exposureTimeBytes[0]<<24) | (exposureTimeBytes[1]<<16) | (exposureTimeBytes[2]<<8) | exposureTimeBytes[3];
+			u_int32_t denominator = (exposureTimeBytes[4]<<24) | (exposureTimeBytes[5]<<16) | (exposureTimeBytes[6]<<8) | exposureTimeBytes[7];
+			if (isExposure == 1) {
+				printf("Время экспозиции: %.2lf секунд\n",numerator/(denominator*1.0));
+			} else if (isExposure == 0) {
+				printf("Апертура: %.2lf\n",numerator/(denominator*1.0));
+			}
+
+			free(exposureTimeBytes);
+
+			fseek(fp_in,curPos,SEEK_SET);
+			continue;
+		}
 
         }
         return 0;
