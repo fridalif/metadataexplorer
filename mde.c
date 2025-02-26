@@ -446,8 +446,8 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 			fseek(fp_in,tiffStart,SEEK_SET);
 			fseek(fp_in,tagShift,SEEK_CUR);
 
-			unsigned char* exposureTimeBytes = (unsigned char*)malloc(tagLength);
-			fread(exposureTimeBytes,1,tagLength,fp_in);
+			unsigned char exposureTimeBytes[8];
+			fread(exposureTimeBytes,1,8,fp_in);
 
 			u_int32_t numerator = (exposureTimeBytes[0]<<24) | (exposureTimeBytes[1]<<16) | (exposureTimeBytes[2]<<8) | exposureTimeBytes[3];
 			u_int32_t denominator = (exposureTimeBytes[4]<<24) | (exposureTimeBytes[5]<<16) | (exposureTimeBytes[6]<<8) | exposureTimeBytes[7];
@@ -545,7 +545,36 @@ int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
 					isLat = 1;
 				}
 				counter+=2;
-				fseek(fp_in,2,SEEK_CUR);
+				unsigned char tagFormat[2];
+				fread(tagFormat,1,2,fp_in);
+				if (tagFormat[1] == 0x03 || tagFormat[1] == 0x04){
+					unsigned char tagLengthBytes[4] = {0};
+					result = fread(tagLengthBytes,1,4,fp_in);
+					if (result!=4 || !fp_in){
+						fseek(fp_in,-4,SEEK_CUR);
+						continue;
+					}
+					unsigned char value[4];
+					result = fread(value,1,4,fp_in);
+					if (result!=4 || !fp_in){
+						fseek(fp_in,-4,SEEK_CUR);
+						continue;
+					}
+					if (isLat) {
+						if (value[3] == 0x4e) {
+							isLatitudeSouth = -1;
+						} else {
+							isLatitudeSouth = 1;
+						}
+					} else {
+						if (value[3] == 0x57) {
+							isLongitudeEast = -1;
+						} else {
+							isLongitudeEast = 1;
+						}
+					}
+					continue;
+				}
 				unsigned char tagLengthBytes[4] = {0};
 				result = fread(tagLengthBytes,1,4,fp_in);
 				if (result!=4 || !fp_in){
