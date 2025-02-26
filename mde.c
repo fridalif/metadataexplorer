@@ -273,6 +273,18 @@ int readMetadataPNG(FILE* fp_in) {
     return 0;
 }
 
+
+int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
+        long tiffStart = ftell(fp_in);
+        unsigned char currentByte = 0x00;
+        if (!fp_in){
+                return 1;
+        }
+        for (long counter; counter < (long)length; counter++){
+
+        }
+        return 0;
+}
 int readMetadataJPEG(FILE* fp_in) {
         unsigned char currentByte = 0x00;
         if (!fp_in) {
@@ -320,6 +332,20 @@ int readMetadataJPEG(FILE* fp_in) {
                         continue;
                 }
                 fread(&currentByte,1,1,fp_in);
+                if (currentByte == 0xe1){
+                        unsigned char appTagLenBytes[2] = {0};
+                        fread(appTagLenBytes,1,2,fp_in);
+                        u_int16_t appTagLen = (appTagLenBytes[0]<<8) | appTagLenBytes[1];
+                        appTagLen = appTagLen-2;
+                        unsigned char exifBytes[4] = {0};
+                        int result = fread(exifBytes,1,4,fp_in);
+                        if (exifBytes[0]!=0x45 || exifBytes[1]!=0x78 || exifBytes[2]!=0x69 || exifBytes[3]!=0x66){
+                                continue;
+                        }
+                        fseek(fp_in,2,SEEK_CUR);
+                        parseJPEGAPPTag(fp_in,appTagLen-4-2);
+                        continue;
+                }
                 if (currentByte == 0xfe) {
                         unsigned char lenghtBytes[2] = {0x00};
                         int result = fread(lenghtBytes,1,2,fp_in);
@@ -327,9 +353,10 @@ int readMetadataJPEG(FILE* fp_in) {
                                 continue;
                         }
                         u_int16_t length = (lenghtBytes[0]<<8) | lenghtBytes[1];
-                        length = length -2;
+                        length = length - 2;
                         unsigned char* comment = (unsigned char*)malloc(length+1);
                         fread(comment,1,length,fp_in);
+                        comment[length] = '\0';
                         printf("Найден комментарий: %s\n",comment);
                         free(comment);
                 }
