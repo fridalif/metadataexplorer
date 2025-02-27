@@ -45,6 +45,8 @@ typedef struct {
 } ExifData;
 
 typedef struct {
+        char* exifName;
+        u_int32_t exifNameLen;
         ExifTags tagType;
         ExifData* tagData;  
 } ExifInfo;
@@ -80,7 +82,6 @@ int writeHelpMessage(char* execName) {
         printf("\tВ разработке\n");
         return 1;
 }
-
 
 int getSystemMarks(int argc, char** argv, char* flag, char* buffer) {
         for (int i = 2; i < argc; i++ ) {
@@ -118,13 +119,18 @@ unsigned int crc32b(unsigned char *message, int len) {
    return ~crc;
 }
 
+int isValidTag(ExifTags tag) {
+        if (tag!=EXIF_MAKE && tag!=EXIF_MODEL && tag!=EXIF_EXPOSURE && tag!=EXIF_FNUMBER && tag!=EXIF_ISOSPEEDRATING && tag!=EXIF_GPSLATITUDE && tag!=EXIF_GPSLONGITUDE && tag !=EXIF_GPSLATITUDEREF && tag!=EXIF_GPSLONGITUDEREF && tag!=EXIF_DATETIME && tag!=EXIF_IMAGEDESCRIPTION) {
+                return 0;
+        }
+        return 1;
+}
 
 /*
 
 	МОДУЛЬ ЧТЕНИЯ
 
 */
-
 
 int readMetadataPNG(FILE* fp_in) {
     unsigned char lastByte;
@@ -316,7 +322,6 @@ int readMetadataPNG(FILE* fp_in) {
     return 0;
 }
 
-
 ExifData* parseExifField(FILE* fp_in, long startTIFF) {
         unsigned char type = 0x00;
         fseek(fp_in,1,SEEK_CUR);
@@ -422,373 +427,386 @@ ExifData* parseExifField(FILE* fp_in, long startTIFF) {
 
 int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
         long tiffStart = ftell(fp_in);
-        unsigned char currentByte = 0x00;
-        if (!fp_in){
-                return 1;
+        unsigned char currentBytes[2];
+        u_int32_t result = 0;
+        for (long counter = 0; counter < (long)length; counter++) {
+                result = fread(currentBytes,1,2,fp_in);
+                if (result!=2 || !fp_in) {
+                        continue;
+                }
+                ExifTags tag = (ExifTags)((currentBytes[0]<<8)|currentBytes[1]);
+                if (isValidTag(tag) == 0){
+                        fseek(fp_in,-1,SEEK_CUR);
+                        continue;
+                }
         }
-	double longitude[3] = {-200.0, -200.0, -200.0};
-	double latitude[3] = {-200.0, -200.0, -200.0};
-	int isLongitudeEast = 0;
-	int isLatitudeSouth = 0;
-	int result = 0;
-        for (long counter = 0; counter < (long)length; counter++){
-		result = fread(&currentByte,1,1,fp_in);
-		if (result<=0 || !fp_in){
-			break;
-		}
-		//ImageDescription
-		if (currentByte == 0x01){
-			counter++;
-			fread(&currentByte,1,1,fp_in);
-			//0x0e - imDescr, 0x0f - camera maker, 0x10 - cameraModel, 0x32 - DateTime
-			if (currentByte != 0x0e && currentByte!=0x0f && currentByte!=0x10 && currentByte!=0x32){
-				fseek(fp_in,-1,SEEK_CUR);
-				counter--;
-				continue;
-			}
-			int isCamera = 0;
-			if (currentByte == 0x0f){
-				isCamera = 1;
-			}
-			if (currentByte == 0x10){
-				isCamera = -1;
-			}
-			if (currentByte == 0x32) {
-				isCamera = 2;
-			}
-			counter+=2;
-			fseek(fp_in,2,SEEK_CUR);
-			unsigned char tagLengthBytes[4] = {0};
-			result = fread(tagLengthBytes,1,4,fp_in);
-			if (result!=4 || !fp_in){
-				fseek(fp_in,-4,SEEK_CUR);
-				continue;
-			}
-			counter+=4;
-			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
-			unsigned char tagShiftBytes[4] = {0};
-			result = fread(tagShiftBytes,1,4,fp_in);
-			if (result!=4 || !fp_in){
-				fseek(fp_in,-4,SEEK_CUR);
-				continue;
-			}
-			counter+=4;
-			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
-			long curPos = ftell(fp_in);
-			
-			fseek(fp_in,tiffStart,SEEK_SET);
-			fseek(fp_in,tagShift,SEEK_CUR);
-
-			unsigned char* imageDescription = (unsigned char*)malloc(tagLength+1);
-			fread(imageDescription,1,tagLength,fp_in);
-			imageDescription[tagLength] = '\0';
-			if (isCamera == 0) {
-				printf("Описание изображения: %s\n",imageDescription);
-				printf("Описание изображения в байтах:");
-			} else if (isCamera == 1) {
-				printf("Производитель: %s\n",imageDescription);
-				printf("Производитель в байтах:");
-			} else if (isCamera == -1) {
-				printf("Модель: %s\n",imageDescription);
-				printf("Модель в байтах:");
-			} else if (isCamera == 2) {
-				printf("Дата и время: %s\n",imageDescription);
-				printf("Дата и время в байтах:");
-			}
-			for (int i = 0; i < tagLength-1; i++) {
-				printf(" %02x", imageDescription[i]);
-			}
-			printf("\n");
-			free(imageDescription);
-
-			fseek(fp_in,curPos,SEEK_SET);
-			continue;
-		}
-
-		//UserComment
-		if (currentByte=0x92){
-			counter++;
-			fread(&currentByte,1,1,fp_in);
-			if (currentByte != 0x86){
-				fseek(fp_in,-1,SEEK_CUR);
-				counter--;
-				continue;
-			}
-			counter+=2;
-			fseek(fp_in,2,SEEK_CUR);
-			unsigned char tagLengthBytes[4] = {0};
-			result = fread(tagLengthBytes,1,4,fp_in);
-			if (result!=4 || !fp_in){
-				fseek(fp_in,-4,SEEK_CUR);
-				continue;
-			}
-			counter+=4;
-			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
-			unsigned char tagShiftBytes[4] = {0};
-			result = fread(tagShiftBytes,1,4,fp_in);
-			if (result!=4 || !fp_in){
-				fseek(fp_in,-4,SEEK_CUR);
-				continue;
-			}
-			counter+=4;
-			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
-			long curPos = ftell(fp_in);
-			
-			fseek(fp_in,tiffStart,SEEK_SET);
-			fseek(fp_in,tagShift,SEEK_CUR);
-
-			unsigned char* userComment = (unsigned char*)malloc(tagLength+1-8);
-			unsigned char commentType[8];
-			fread(commentType,1,8,fp_in);
-			commentType[8] = '\0';
-			fread(userComment,1,tagLength-8,fp_in);
-			printf("Формат пользовательского комментария: %s\n", commentType);
-			printf("Пользовательский комментарий: %s\n",userComment);
-			printf("Пользовательский комментарий в байтах:");
-			for (int i = 0; i < tagLength-8; i++) {
-				printf(" %02x", userComment[i]);
-			}
-			printf("\n");
-			free(userComment);
-
-			fseek(fp_in,curPos,SEEK_SET);
-			continue;
-		}
-
-		//ExposureTime и Aperture
-		if (currentByte == 0x82) {
-			counter++;
-			fread(&currentByte,1,1,fp_in);
-			//0x9a - exposure, 0x9d - aperture
-			if (currentByte != 0x9a && currentByte != 0x9d){
-				fseek(fp_in,-1,SEEK_CUR);
-				counter--;
-				continue;
-			}
-			int isExposure = 1;
-			if (currentByte == 0x9d) {
-				isExposure = 0;
-			}
-			counter+=2;
-			fseek(fp_in,2,SEEK_CUR);
-			unsigned char tagLengthBytes[4] = {0};
-			result = fread(tagLengthBytes,1,4,fp_in);
-			if (result!=4 || !fp_in){
-				fseek(fp_in,-4,SEEK_CUR);
-				continue;
-			}
-			counter+=4;
-			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
-			unsigned char tagShiftBytes[4] = {0};
-			result = fread(tagShiftBytes,1,4,fp_in);
-			if (result!=4 || !fp_in){
-				fseek(fp_in,-4,SEEK_CUR);
-				continue;
-			}
-			counter+=4;
-			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
-			long curPos = ftell(fp_in);
-			
-			fseek(fp_in,tiffStart,SEEK_SET);
-			fseek(fp_in,tagShift,SEEK_CUR);
-
-			unsigned char exposureTimeBytes[8];
-			fread(exposureTimeBytes,1,8,fp_in);
-
-			u_int32_t numerator = (exposureTimeBytes[0]<<24) | (exposureTimeBytes[1]<<16) | (exposureTimeBytes[2]<<8) | exposureTimeBytes[3];
-			u_int32_t denominator = (exposureTimeBytes[4]<<24) | (exposureTimeBytes[5]<<16) | (exposureTimeBytes[6]<<8) | exposureTimeBytes[7];
-			if (isExposure == 1) {
-				printf("Время экспозиции: %.2f секунд\n",numerator/(denominator*1.0));
-			} else if (isExposure == 0) {
-				printf("Апертура: %.2f\n",numerator/(denominator*1.0));
-			}
-
-			free(exposureTimeBytes);
-
-			fseek(fp_in,curPos,SEEK_SET);
-			continue;
-		}
-		if (currentByte == 0x88){
-			result = fread(&currentByte,1,1,fp_in);
-			if (!fp_in || result != 1) {
-				continue;
-			}
-			if (currentByte!=0x27) {
-				fseek(fp_in,-1,SEEK_CUR);
-				continue;
-			}
-			fseek(fp_in,6,SEEK_CUR);
-			unsigned char isoFormatBytes[4] = {0x00};
-			result = fread(isoFormatBytes,1,4,fp_in);
-			if (!fp_in || result!=4) {
-				continue;
-			}
-			u_int32_t isoFormat = (isoFormatBytes[0]<<24) | (isoFormatBytes[1]<<16) | (isoFormatBytes[2]<<8) | isoFormatBytes[3];
-			printf("ISO чувствительность: ISO %d\n",isoFormat);
-			continue;
-		}
-
-		//Gelocation
-		if (currentByte == 0x00){
-			counter++;
-			fread(&currentByte,1,1,fp_in);
-			//longitude and latitude
-			if (currentByte == 0x02 || currentByte != 0x04) {
-				int isLat = 0;
-				if (currentByte == 0x02) {
-					isLat = 1;
-				}
-				counter+=2;
-				fseek(fp_in,2,SEEK_CUR);
-				unsigned char tagLengthBytes[4] = {0};
-				result = fread(tagLengthBytes,1,4,fp_in);
-				if (result!=4 || !fp_in){
-					fseek(fp_in,-4,SEEK_CUR);
-					continue;
-				}
-				counter+=4;
-				u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
-				unsigned char tagShiftBytes[4] = {0};
-				result = fread(tagShiftBytes,1,4,fp_in);
-				if (result!=4 || !fp_in){
-					fseek(fp_in,-4,SEEK_CUR);
-					continue;
-				}
-				counter+=4;
-				u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
-				long curPos = ftell(fp_in);
-
-				fseek(fp_in,tiffStart,SEEK_SET);
-				fseek(fp_in,tagShift,SEEK_CUR);
-
-				unsigned char coordinatesBytes[24] = {0x00};
-				fread(coordinatesBytes,1,24,fp_in);
-
-				u_int32_t numeratorGrad = (coordinatesBytes[0]<<24) | (coordinatesBytes[1]<<16) | (coordinatesBytes[2]<<8) | coordinatesBytes[3];
-				u_int32_t denominatorGrad = (coordinatesBytes[4]<<24) | (coordinatesBytes[5]<<16) | (coordinatesBytes[6]<<8) | coordinatesBytes[7];
-				u_int32_t numeratorMin = (coordinatesBytes[8]<<24) | (coordinatesBytes[9]<<16) | (coordinatesBytes[10]<<8) | coordinatesBytes[11];
-				u_int32_t denominatorMin = (coordinatesBytes[12]<<24) | (coordinatesBytes[13]<<16) | (coordinatesBytes[14]<<8) | coordinatesBytes[15];
-				u_int32_t numeratorSec = (coordinatesBytes[16]<<24) | (coordinatesBytes[17]<<16) | (coordinatesBytes[18]<<8) | coordinatesBytes[19];
-				u_int32_t denominatorSec = (coordinatesBytes[20]<<24) | (coordinatesBytes[21]<<16) | (coordinatesBytes[22]<<8) | coordinatesBytes[23];
-				
-				if (isLat == 1) {
-					latitude[0] = numeratorGrad/(denominatorGrad*1.0);
-					latitude[1] = numeratorMin/(denominatorMin*1.0);
-					latitude[2] = numeratorSec/(denominatorSec*1.0);
-				} else {
-					longitude[0] = numeratorGrad/(denominatorGrad*1.0);
-					longitude[1] = numeratorMin/(denominatorMin*1.0);
-					longitude[2] = numeratorSec/(denominatorSec*1.0);
-				}
-				
-				fseek(fp_in,curPos,SEEK_SET);
-				continue;	
-			}
-			//refs
-			if (currentByte == 0x01 || currentByte == 0x03) {
-				int isLat = 0;
-				if (currentByte == 0x01) {
-					isLat = 1;
-				}
-				counter+=2;
-				unsigned char tagFormat[2];
-				fread(tagFormat,1,2,fp_in);
-				if (tagFormat[1] == 0x03 || tagFormat[1] == 0x04){
-					unsigned char tagLengthBytes[4] = {0};
-					result = fread(tagLengthBytes,1,4,fp_in);
-					if (result!=4 || !fp_in){
-						fseek(fp_in,-4,SEEK_CUR);
-						continue;
-					}
-					unsigned char value[4];
-					result = fread(value,1,4,fp_in);
-					if (result!=4 || !fp_in){
-						fseek(fp_in,-4,SEEK_CUR);
-						continue;
-					}
-					if (isLat) {
-						if (value[3] == 0x4e) {
-							isLatitudeSouth = -1;
-						} else {
-							isLatitudeSouth = 1;
-						}
-					} else {
-						if (value[3] == 0x57) {
-							isLongitudeEast = -1;
-						} else {
-							isLongitudeEast = 1;
-						}
-					}
-					continue;
-				}
-				unsigned char tagLengthBytes[4] = {0};
-				result = fread(tagLengthBytes,1,4,fp_in);
-				if (result!=4 || !fp_in){
-					fseek(fp_in,-4,SEEK_CUR);
-					continue;
-				}
-				counter+=4;
-				u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
-				unsigned char tagShiftBytes[4] = {0};
-				result = fread(tagShiftBytes,1,4,fp_in);
-				if (result!=4 || !fp_in){
-					fseek(fp_in,-4,SEEK_CUR);
-					continue;
-				}
-				counter+=4;
-				u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
-				long curPos = ftell(fp_in);
-
-				fseek(fp_in,tiffStart,SEEK_SET);
-				fseek(fp_in,tagShift,SEEK_CUR);
-
-				unsigned char refBute = 0x00;
-				fread(&refBute,1,1,fp_in);
-				if (isLat) {
-					if (refBute == 0x4e) {
-						isLatitudeSouth = -1;
-					} else {
-						isLatitudeSouth = 1;
-					}
-				} else {
-					if (refBute == 0x57) {
-						isLongitudeEast = -1;
-					} else {
-						isLongitudeEast = 1;
-					}
-				}
-
-				fseek(fp_in,curPos,SEEK_SET);
-				
-				continue;
-			}
-			fseek(fp_in,-1,SEEK_CUR);
-			counter--;
-			continue;
-			
-		}
-		
-        }
-
-	if (longitude[0]!=-200.0 || longitude[1]!=-200.0 || longitude[2]!=-200.0) {
-		printf("Долгота: %.0f градусов %.0f минут %.0f секунд",longitude[0],longitude[1],longitude[2]);
-		if (isLongitudeEast == 1) {
-			printf(" восточной долготы");
-		} else if (isLongitudeEast == -1) {
-			printf(" западной долготы");
-		}
-		printf("\n");
-	}
-	if (latitude[0]!=-200.0 || latitude[1]!=-200.0 || latitude[2]!=-200.0) {
-		printf("Широта: %.0f градусов %.0f минут %.0f секунд",latitude[0],latitude[1],latitude[2]);
-		if (isLatitudeSouth == 1) {
-			printf(" южной широты");
-		} else if (isLatitudeSouth == -1) {
-			printf(" северной широты");
-		}
-		printf("\n");
-	}
-        return 0;
+        //unsigned char currentByte = 0x00;
+        //if (!fp_in){
+        //        return 1;
+        //}
+	//double longitude[3] = {-200.0, -200.0, -200.0};
+	//double latitude[3] = {-200.0, -200.0, -200.0};
+	//int isLongitudeEast = 0;
+	//int isLatitudeSouth = 0;
+	//int result = 0;
+        //for (long counter = 0; counter < (long)length; counter++){
+	//	result = fread(&currentByte,1,1,fp_in);
+	//	if (result<=0 || !fp_in){
+	//		break;
+	//	}
+	//	//ImageDescription
+	//	if (currentByte == 0x01){
+	//		counter++;
+	//		fread(&currentByte,1,1,fp_in);
+	//		//0x0e - imDescr, 0x0f - camera maker, 0x10 - cameraModel, 0x32 - DateTime
+	//		if (currentByte != 0x0e && currentByte!=0x0f && currentByte!=0x10 && currentByte!=0x32){
+	//			fseek(fp_in,-1,SEEK_CUR);
+	//			counter--;
+	//			continue;
+	//		}
+	//		int isCamera = 0;
+	//		if (currentByte == 0x0f){
+	//			isCamera = 1;
+	//		}
+	//		if (currentByte == 0x10){
+	//			isCamera = -1;
+	//		}
+	//		if (currentByte == 0x32) {
+	//			isCamera = 2;
+	//		}
+	//		counter+=2;
+	//		fseek(fp_in,2,SEEK_CUR);
+	//		unsigned char tagLengthBytes[4] = {0};
+	//		result = fread(tagLengthBytes,1,4,fp_in);
+	//		if (result!=4 || !fp_in){
+	//			fseek(fp_in,-4,SEEK_CUR);
+	//			continue;
+	//		}
+	//		counter+=4;
+	//		u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+	//		unsigned char tagShiftBytes[4] = {0};
+	//		result = fread(tagShiftBytes,1,4,fp_in);
+	//		if (result!=4 || !fp_in){
+	//			fseek(fp_in,-4,SEEK_CUR);
+	//			continue;
+	//		}
+	//		counter+=4;
+	//		u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+	//		long curPos = ftell(fp_in);
+	//		
+	//		fseek(fp_in,tiffStart,SEEK_SET);
+	//		fseek(fp_in,tagShift,SEEK_CUR);
+//
+	//		unsigned char* imageDescription = (unsigned char*)malloc(tagLength+1);
+	//		fread(imageDescription,1,tagLength,fp_in);
+	//		imageDescription[tagLength] = '\0';
+	//		if (isCamera == 0) {
+	//			printf("Описание изображения: %s\n",imageDescription);
+	//			printf("Описание изображения в байтах:");
+	//		} else if (isCamera == 1) {
+	//			printf("Производитель: %s\n",imageDescription);
+	//			printf("Производитель в байтах:");
+	//		} else if (isCamera == -1) {
+	//			printf("Модель: %s\n",imageDescription);
+	//			printf("Модель в байтах:");
+	//		} else if (isCamera == 2) {
+	//			printf("Дата и время: %s\n",imageDescription);
+	//			printf("Дата и время в байтах:");
+	//		}
+	//		for (int i = 0; i < tagLength-1; i++) {
+	//			printf(" %02x", imageDescription[i]);
+	//		}
+	//		printf("\n");
+	//		free(imageDescription);
+//
+	//		fseek(fp_in,curPos,SEEK_SET);
+	//		continue;
+	//	}
+//
+	//	//UserComment
+	//	if (currentByte=0x92){
+	//		counter++;
+	//		fread(&currentByte,1,1,fp_in);
+	//		if (currentByte != 0x86){
+	//			fseek(fp_in,-1,SEEK_CUR);
+	//			counter--;
+	//			continue;
+	//		}
+	//		counter+=2;
+	//		fseek(fp_in,2,SEEK_CUR);
+	//		unsigned char tagLengthBytes[4] = {0};
+	//		result = fread(tagLengthBytes,1,4,fp_in);
+	//		if (result!=4 || !fp_in){
+	//			fseek(fp_in,-4,SEEK_CUR);
+	//			continue;
+	//		}
+	//		counter+=4;
+	//		u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+	//		unsigned char tagShiftBytes[4] = {0};
+	//		result = fread(tagShiftBytes,1,4,fp_in);
+	//		if (result!=4 || !fp_in){
+	//			fseek(fp_in,-4,SEEK_CUR);
+	//			continue;
+	//		}
+	//		counter+=4;
+	//		u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+	//		long curPos = ftell(fp_in);
+	//		
+	//		fseek(fp_in,tiffStart,SEEK_SET);
+	//		fseek(fp_in,tagShift,SEEK_CUR);
+//
+	//		unsigned char* userComment = (unsigned char*)malloc(tagLength+1-8);
+	//		unsigned char commentType[8];
+	//		fread(commentType,1,8,fp_in);
+	//		commentType[8] = '\0';
+	//		fread(userComment,1,tagLength-8,fp_in);
+	//		printf("Формат пользовательского комментария: %s\n", commentType);
+	//		printf("Пользовательский комментарий: %s\n",userComment);
+	//		printf("Пользовательский комментарий в байтах:");
+	//		for (int i = 0; i < tagLength-8; i++) {
+	//			printf(" %02x", userComment[i]);
+	//		}
+	//		printf("\n");
+	//		free(userComment);
+//
+	//		fseek(fp_in,curPos,SEEK_SET);
+	//		continue;
+	//	}
+//
+	//	//ExposureTime и Aperture
+	//	if (currentByte == 0x82) {
+	//		counter++;
+	//		fread(&currentByte,1,1,fp_in);
+	//		//0x9a - exposure, 0x9d - aperture
+	//		if (currentByte != 0x9a && currentByte != 0x9d){
+	//			fseek(fp_in,-1,SEEK_CUR);
+	//			counter--;
+	//			continue;
+	//		}
+	//		int isExposure = 1;
+	//		if (currentByte == 0x9d) {
+	//			isExposure = 0;
+	//		}
+	//		counter+=2;
+	//		fseek(fp_in,2,SEEK_CUR);
+	//		unsigned char tagLengthBytes[4] = {0};
+	//		result = fread(tagLengthBytes,1,4,fp_in);
+	//		if (result!=4 || !fp_in){
+	//			fseek(fp_in,-4,SEEK_CUR);
+	//			continue;
+	//		}
+	//		counter+=4;
+	//		u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+	//		unsigned char tagShiftBytes[4] = {0};
+	//		result = fread(tagShiftBytes,1,4,fp_in);
+	//		if (result!=4 || !fp_in){
+	//			fseek(fp_in,-4,SEEK_CUR);
+	//			continue;
+	//		}
+	//		counter+=4;
+	//		u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+	//		long curPos = ftell(fp_in);
+	//		
+	//		fseek(fp_in,tiffStart,SEEK_SET);
+	//		fseek(fp_in,tagShift,SEEK_CUR);
+//
+	//		unsigned char exposureTimeBytes[8];
+	//		fread(exposureTimeBytes,1,8,fp_in);
+//
+	//		u_int32_t numerator = (exposureTimeBytes[0]<<24) | (exposureTimeBytes[1]<<16) | (exposureTimeBytes[2]<<8) | exposureTimeBytes[3];
+	//		u_int32_t denominator = (exposureTimeBytes[4]<<24) | (exposureTimeBytes[5]<<16) | (exposureTimeBytes[6]<<8) | exposureTimeBytes[7];
+	//		if (isExposure == 1) {
+	//			printf("Время экспозиции: %.2f секунд\n",numerator/(denominator*1.0));
+	//		} else if (isExposure == 0) {
+	//			printf("Апертура: %.2f\n",numerator/(denominator*1.0));
+	//		}
+//
+	//		free(exposureTimeBytes);
+//
+	//		fseek(fp_in,curPos,SEEK_SET);
+	//		continue;
+	//	}
+	//	if (currentByte == 0x88){
+	//		result = fread(&currentByte,1,1,fp_in);
+	//		if (!fp_in || result != 1) {
+	//			continue;
+	//		}
+	//		if (currentByte!=0x27) {
+	//			fseek(fp_in,-1,SEEK_CUR);
+	//			continue;
+	//		}
+	//		fseek(fp_in,6,SEEK_CUR);
+	//		unsigned char isoFormatBytes[4] = {0x00};
+	//		result = fread(isoFormatBytes,1,4,fp_in);
+	//		if (!fp_in || result!=4) {
+	//			continue;
+	//		}
+	//		u_int32_t isoFormat = (isoFormatBytes[0]<<24) | (isoFormatBytes[1]<<16) | (isoFormatBytes[2]<<8) | isoFormatBytes[3];
+	//		printf("ISO чувствительность: ISO %d\n",isoFormat);
+	//		continue;
+	//	}
+//
+	//	//Gelocation
+	//	if (currentByte == 0x00){
+	//		counter++;
+	//		fread(&currentByte,1,1,fp_in);
+	//		//longitude and latitude
+	//		if (currentByte == 0x02 || currentByte != 0x04) {
+	//			int isLat = 0;
+	//			if (currentByte == 0x02) {
+	//				isLat = 1;
+	//			}
+	//			counter+=2;
+	//			fseek(fp_in,2,SEEK_CUR);
+	//			unsigned char tagLengthBytes[4] = {0};
+	//			result = fread(tagLengthBytes,1,4,fp_in);
+	//			if (result!=4 || !fp_in){
+	//				fseek(fp_in,-4,SEEK_CUR);
+	//				continue;
+	//			}
+	//			counter+=4;
+	//			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+	//			unsigned char tagShiftBytes[4] = {0};
+	//			result = fread(tagShiftBytes,1,4,fp_in);
+	//			if (result!=4 || !fp_in){
+	//				fseek(fp_in,-4,SEEK_CUR);
+	//				continue;
+	//			}
+	//			counter+=4;
+	//			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+	//			long curPos = ftell(fp_in);
+//
+	//			fseek(fp_in,tiffStart,SEEK_SET);
+	//			fseek(fp_in,tagShift,SEEK_CUR);
+//
+	//			unsigned char coordinatesBytes[24] = {0x00};
+	//			fread(coordinatesBytes,1,24,fp_in);
+//
+	//			u_int32_t numeratorGrad = (coordinatesBytes[0]<<24) | (coordinatesBytes[1]<<16) | (coordinatesBytes[2]<<8) | coordinatesBytes[3];
+	//			u_int32_t denominatorGrad = (coordinatesBytes[4]<<24) | (coordinatesBytes[5]<<16) | (coordinatesBytes[6]<<8) | coordinatesBytes[7];
+	//			u_int32_t numeratorMin = (coordinatesBytes[8]<<24) | (coordinatesBytes[9]<<16) | (coordinatesBytes[10]<<8) | coordinatesBytes[11];
+	//			u_int32_t denominatorMin = (coordinatesBytes[12]<<24) | (coordinatesBytes[13]<<16) | (coordinatesBytes[14]<<8) | coordinatesBytes[15];
+	//			u_int32_t numeratorSec = (coordinatesBytes[16]<<24) | (coordinatesBytes[17]<<16) | (coordinatesBytes[18]<<8) | coordinatesBytes[19];
+	//			u_int32_t denominatorSec = (coordinatesBytes[20]<<24) | (coordinatesBytes[21]<<16) | (coordinatesBytes[22]<<8) | coordinatesBytes[23];
+	//			
+	//			if (isLat == 1) {
+	//				latitude[0] = numeratorGrad/(denominatorGrad*1.0);
+	//				latitude[1] = numeratorMin/(denominatorMin*1.0);
+	//				latitude[2] = numeratorSec/(denominatorSec*1.0);
+	//			} else {
+	//				longitude[0] = numeratorGrad/(denominatorGrad*1.0);
+	//				longitude[1] = numeratorMin/(denominatorMin*1.0);
+	//				longitude[2] = numeratorSec/(denominatorSec*1.0);
+	//			}
+	//			
+	//			fseek(fp_in,curPos,SEEK_SET);
+	//			continue;	
+	//		}
+	//		//refs
+	//		if (currentByte == 0x01 || currentByte == 0x03) {
+	//			int isLat = 0;
+	//			if (currentByte == 0x01) {
+	//				isLat = 1;
+	//			}
+	//			counter+=2;
+	//			unsigned char tagFormat[2];
+	//			fread(tagFormat,1,2,fp_in);
+	//			if (tagFormat[1] == 0x03 || tagFormat[1] == 0x04){
+	//				unsigned char tagLengthBytes[4] = {0};
+	//				result = fread(tagLengthBytes,1,4,fp_in);
+	//				if (result!=4 || !fp_in){
+	//					fseek(fp_in,-4,SEEK_CUR);
+	//					continue;
+	//				}
+	//				unsigned char value[4];
+	//				result = fread(value,1,4,fp_in);
+	//				if (result!=4 || !fp_in){
+	//					fseek(fp_in,-4,SEEK_CUR);
+	//					continue;
+	//				}
+	//				if (isLat) {
+	//					if (value[3] == 0x4e) {
+	//						isLatitudeSouth = -1;
+	//					} else {
+	//						isLatitudeSouth = 1;
+	//					}
+	//				} else {
+	//					if (value[3] == 0x57) {
+	//						isLongitudeEast = -1;
+	//					} else {
+	//						isLongitudeEast = 1;
+	//					}
+	//				}
+	//				continue;
+	//			}
+	//			unsigned char tagLengthBytes[4] = {0};
+	//			result = fread(tagLengthBytes,1,4,fp_in);
+	//			if (result!=4 || !fp_in){
+	//				fseek(fp_in,-4,SEEK_CUR);
+	//				continue;
+	//			}
+	//			counter+=4;
+	//			u_int32_t tagLength = (tagLengthBytes[0]<<24) | (tagLengthBytes[1]<<16) | (tagLengthBytes[2]<<8)|tagLengthBytes[3];
+	//			unsigned char tagShiftBytes[4] = {0};
+	//			result = fread(tagShiftBytes,1,4,fp_in);
+	//			if (result!=4 || !fp_in){
+	//				fseek(fp_in,-4,SEEK_CUR);
+	//				continue;
+	//			}
+	//			counter+=4;
+	//			u_int32_t tagShift = (tagShiftBytes[0]<<24) | (tagShiftBytes[0]<<16) | (tagShiftBytes[2]<<8) | tagShiftBytes[3];
+	//			long curPos = ftell(fp_in);
+//
+	//			fseek(fp_in,tiffStart,SEEK_SET);
+	//			fseek(fp_in,tagShift,SEEK_CUR);
+//
+	//			unsigned char refBute = 0x00;
+	//			fread(&refBute,1,1,fp_in);
+	//			if (isLat) {
+	//				if (refBute == 0x4e) {
+	//					isLatitudeSouth = -1;
+	//				} else {
+	//					isLatitudeSouth = 1;
+	//				}
+	//			} else {
+	//				if (refBute == 0x57) {
+	//					isLongitudeEast = -1;
+	//				} else {
+	//					isLongitudeEast = 1;
+	//				}
+	//			}
+//
+	//			fseek(fp_in,curPos,SEEK_SET);
+	//			
+	//			continue;
+	//		}
+	//		fseek(fp_in,-1,SEEK_CUR);
+	//		counter--;
+	//		continue;
+	//		
+	//	}
+	//	
+        //}
+//
+	//if (longitude[0]!=-200.0 || longitude[1]!=-200.0 || longitude[2]!=-200.0) {
+	//	printf("Долгота: %.0f градусов %.0f минут %.0f секунд",longitude[0],longitude[1],longitude[2]);
+	//	if (isLongitudeEast == 1) {
+	//		printf(" восточной долготы");
+	//	} else if (isLongitudeEast == -1) {
+	//		printf(" западной долготы");
+	//	}
+	//	printf("\n");
+	//}
+	//if (latitude[0]!=-200.0 || latitude[1]!=-200.0 || latitude[2]!=-200.0) {
+	//	printf("Широта: %.0f градусов %.0f минут %.0f секунд",latitude[0],latitude[1],latitude[2]);
+	//	if (isLatitudeSouth == 1) {
+	//		printf(" южной широты");
+	//	} else if (isLatitudeSouth == -1) {
+	//		printf(" северной широты");
+	//	}
+	//	printf("\n");
+	//}
+        //return 0;
 }
 
 int readMetadataJPEG(FILE* fp_in) {
