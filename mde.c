@@ -22,6 +22,34 @@ typedef enum {
         EXIF_DOUBLE     = 0x12   
 } ExifFormats;
 
+typedef enum {
+        EXIF_MAKE = (0x01<<8) | 0x0f,
+        EXIF_MODEL = (0x01<<8) | 0x10,
+        EXIF_EXPOSURE = (0x82<<8) | 0x9a,
+        EXIF_FNUMBER = (0x82<<8) | 0x9d,
+        EXIF_ISOSPEEDRATING = (0x82<<8) | 0x9d,
+        EXIF_USERCOMMENT = (0x92<<8) | 0x86,
+        EXIF_GPSLATITUDE = (0x00<<8) | 0x02,
+        EXIF_GPSLONGITUDE = (0x00<<8) | 0x04,
+        EXIF_GPSLATITUDEREF = (0x00<<8) | 0x01,
+        EXIF_GPSLONGITUDEREF = (0x00<<8) | 0x03,
+        EXIF_DATETIME = (0x01<<8) | 0x32,
+        EXIF_IMAGEDESCRIPTION = (0x01<<8) | 0x0e
+} ExifTags;
+
+typedef struct {
+        ExifFormats format;
+        unsigned char* data;
+        u_int32_t dataLen;
+        int isSigned;
+} ExifData;
+
+typedef struct {
+        ExifTags tagType;
+        ExifData* tagData;  
+} ExifInfo;
+
+
 /*
 
         ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -289,7 +317,7 @@ int readMetadataPNG(FILE* fp_in) {
 }
 
 
-unsigned char** parseExifField(FILE* fp_in, long startTIFF) {
+ExifData* parseExifField(FILE* fp_in, long startTIFF) {
         unsigned char type = 0x00;
         fseek(fp_in,1,SEEK_CUR);
         int result = fread(&type,1,1,fp_in);
@@ -306,7 +334,7 @@ unsigned char** parseExifField(FILE* fp_in, long startTIFF) {
         }
         ExifFormats format = (ExifFormats)type;
         u_int32_t count = (countBytes[0]<<24) | (countBytes[1]<<16) | (countBytes[2]<<8) | countBytes[3];
-        int countMultiple = 0;
+        u_int32_t countMultiple = 0;
         int isSigned = 0;
         switch (format) {
                 case EXIF_BYTE:
@@ -352,7 +380,44 @@ unsigned char** parseExifField(FILE* fp_in, long startTIFF) {
                         isSigned = 1;
                         break;
         }
-        
+        u_int32_t bytesForRead = count * countMultiple;
+        ExifData tagData;
+        tagData.format = format;
+        tagData.isSigned = isSigned;
+
+        if (bytesForRead <= 4){
+                tagData.data = (unsigned char*)malloc(4);
+                tagData.dataLen = 4;
+                result = fread(tagData.data,1,4,fp_in);
+                if (result!=4 || ! fp_in) {
+                        free(tagData.data);
+                        return NULL;
+                }
+                return &tagData;
+        }
+
+        unsigned char offsetBytes[4] = {0x00,0x00,0x00,0x00};
+        result = fread(offsetBytes,1,4,fp_in);
+        if (result != 4 || !fp_in) {
+                return NULL;
+        }
+        u_int32_t offset = (offsetBytes[0]<<24) | (offsetBytes[1]<<16) | (offsetBytes[2]<<8) | offsetBytes[3];
+        long currentOffset = ftell(fp_in);
+        tagData.data = (unsigned char*)malloc(bytesForRead);
+        tagData.dataLen = bytesForRead;
+        fseek(fp_in, startTIFF+offset, SEEK_SET);
+
+        u_int32_t readResult = fread(tagData.data, 1, tagData.dataLen, fp_in);
+        if (!fp_in) {
+                free(tagData.data);
+                return NULL;
+        }
+        fseek(fp_in,currentOffset,SEEK_SET);
+        if (readResult!=tagData.dataLen) {
+                free(tagData.data);
+                return NULL;
+        }
+        return &tagData;
 }
 
 int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
