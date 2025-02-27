@@ -7,6 +7,21 @@
 #include <time.h>
 #include <string.h>
 
+typedef enum {
+        EXIF_BYTE       = 0x01,  
+        EXIF_ASCII      = 0x02,  
+        EXIF_SHORT      = 0x03,  
+        EXIF_LONG       = 0x04,  
+        EXIF_RATIONAL   = 0x05,  
+        EXIF_SBYTE      = 0x06,  
+        EXIF_UNDEFINED  = 0x07,  
+        EXIF_SSHORT     = 0x08,  
+        EXIF_SLONG      = 0x09,  
+        EXIF_SRATIONAL  = 0x10,  
+        EXIF_FLOAT      = 0x11,  
+        EXIF_DOUBLE     = 0x12   
+} ExifFormats;
+
 /*
 
         ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -273,6 +288,72 @@ int readMetadataPNG(FILE* fp_in) {
     return 0;
 }
 
+
+unsigned char** parseExifField(FILE* fp_in, long startTIFF) {
+        unsigned char type = 0x00;
+        fseek(fp_in,1,SEEK_CUR);
+        int result = fread(&type,1,1,fp_in);
+        if (result<1 || !fp_in) {
+                return NULL;
+        }
+        if (type==0x00 || type>0x12) {
+                return NULL;
+        }
+        unsigned char countBytes[4] = {0x00,0x00,0x00,0x00};
+        result = fread(countBytes,1,4,fp_in);
+        if (result < 4 || !fp_in) {
+                return NULL;
+        }
+        ExifFormats format = (ExifFormats)type;
+        u_int32_t count = (countBytes[0]<<24) | (countBytes[1]<<16) | (countBytes[2]<<8) | countBytes[3];
+        int countMultiple = 0;
+        int isSigned = 0;
+        switch (format) {
+                case EXIF_BYTE:
+                        countMultiple = 1;
+                        break;
+                case EXIF_ASCII:
+                        countMultiple = 1;
+                        break;
+                case EXIF_SHORT:
+                        countMultiple = 2;
+                        break;
+                case EXIF_LONG:
+                        countMultiple = 4;
+                        break;
+                case EXIF_RATIONAL:
+                        countMultiple = 8;
+                        break;
+                case EXIF_SBYTE:
+                        countMultiple = 1;
+                        isSigned = 1;
+                        break;
+                case EXIF_UNDEFINED:
+                        countMultiple = 1;
+                        break;
+                case EXIF_SSHORT:
+                        countMultiple = 2;
+                        isSigned = 1;
+                        break;
+                case EXIF_SLONG:
+                        countMultiple = 4;
+                        isSigned = 1;
+                        break;
+                case EXIF_SRATIONAL:
+                        countMultiple = 8;
+                        isSigned = 1;
+                        break;
+                case EXIF_FLOAT:
+                        countMultiple = 4;
+                        isSigned = 1;
+                        break;
+                case EXIF_DOUBLE:
+                        countMultiple = 8;
+                        isSigned = 1;
+                        break;
+        }
+        
+}
 
 int parseJPEGAPPTag(FILE* fp_in, u_int16_t length) {
         long tiffStart = ftell(fp_in);
