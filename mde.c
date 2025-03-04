@@ -1277,6 +1277,32 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         while(fp_in && fread(&currentByte,1,1,fp_in) == 1) {
                 fwrite(&currentByte,1,1,fp_out);
         }
+        if (fp_in) {
+                fclose(fp_in);
+        }
+        if (fp_out){
+                fclose(fp_out);
+        }
+        printf("Изменение исходного файла\n", filename);
+        fp_in = fopen(new_filename,"rb");
+        fp_out = fopen(filename,"wb");
+        while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
+                //Insert JFIF version
+                if (currentByte == 0x4a && hasJFIFCLI != -1) {
+                        fwrite(&currentByte,1,1,fp_out);
+                        unsigned char bytesFIF[3];
+                        int result = fread(bytesFIF,1,3,fp_in);
+                        if (result!=3 || bytesFIF[0]!=0x46 || bytesFIF[1]!=0x49 || bytesFIF[2]!=0x46) {
+                                fseek(fp_in,-3,SEEK_CUR);
+                                continue;
+                        }
+                        fwrite(bytesFIF,1,3,fp_out);
+                        fwrite(jfifBuffer,1,4,fp_out);
+                        fseek(fp_in,4,SEEK_CUR);
+                        continue;
+                }
+        }
+        
         clearExifInfo(startPoint);
         return 0;
 }
