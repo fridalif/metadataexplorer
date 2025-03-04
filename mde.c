@@ -53,142 +53,172 @@ struct ExifInfo{
         char* exifName;
         u_int32_t exifNameLen;
         ExifTags tagType;
-        ExifData tagData;  
+        ExifData* tagData;  
 };
 
 int append(ExifInfo* start, ExifInfo* appendingItem) {
-        ExifInfo* tempPointer = start;
-        while (tempPointer->next != NULL) {
-                tempPointer = tempPointer->next;
+    if (start == NULL) {
+        appendingItem->prev = NULL;
+        appendingItem->next = NULL;
+        return 1; 
+    }
+
+    ExifInfo* tempPointer = start;
+    while (tempPointer->next != NULL) {
+        tempPointer = tempPointer->next;
+    }
+    tempPointer->next = appendingItem;
+    appendingItem->prev = tempPointer;
+    return 1;
+}
+void clearExifData(ExifData* tagData) {
+    if (tagData != NULL) {
+        if (tagData->data != NULL) {
+            free(tagData->data); 
+            tagData->data = NULL;
         }
-        tempPointer->next = appendingItem;
-        appendingItem->prev = tempPointer;
-        return 1;
+        free(tagData);
+    }
 }
 
-int freeExifInfo(ExifInfo* start) {
-        ExifInfo* nextPointer = start->next;
-        if (start!=NULL) {
-                free(start);
+void clearExifInfo(ExifInfo* info) {
+        if (info == NULL) {
+            return;
         }
-        while (nextPointer!=NULL) {
-                free(nextPointer->exifName);
-                free(nextPointer->tagData.data);
-                ExifInfo* curNext = nextPointer->next;
-                free(nextPointer);
-                nextPointer = curNext;
+        
+        if (info->next != NULL) {
+            clearExifInfo(info->next);
         }
-        return 1;
+
+        if (info->exifName != NULL) {
+                free(info->exifName);
+                info->exifName = NULL;
+        }
+
+        if (info->tagData != NULL) {
+            clearExifData(info->tagData); 
+        }
+        free(info);
 }
 
 int printExifInfo(ExifInfo* start) {
         ExifInfo* tempPointer = start->next;
         while (tempPointer!=NULL) {
                 printf("%s в байтах:",tempPointer->exifName);
-                for (u_int32_t i = 0; i<tempPointer->tagData.dataLen;i++) {
-                        printf("%02x",tempPointer->tagData.data[i]);
+                for (u_int32_t i = 0; i<tempPointer->tagData->dataLen;i++) {
+                        printf("%02x",tempPointer->tagData->data[i]);
                 }
                 printf("\n");
                 printf("%s: ",tempPointer->exifName);
                 
-                switch (tempPointer->tagData.format) {
+                switch (tempPointer->tagData->format) {
                         case EXIF_BYTE:
-                                printf("%s", tempPointer->tagData.data);
+                                printf("%s", tempPointer->tagData->data);
                                 break;
                         case EXIF_ASCII:
-                                printf("%s", tempPointer->tagData.data);
+                                for (int i=0; i<tempPointer->tagData->dataLen; i++){
+                                        if (tempPointer->tagData->data[i] == 0x00){
+                                                continue;
+                                        }
+                                        printf("%c", tempPointer->tagData->data[i]);
+                                }
                                 break;
                         case EXIF_SHORT:
-                                if (tempPointer->tagData.counter == 1) {
-                                        u_int16_t result = (tempPointer->tagData.data[2]<<8) | tempPointer->tagData.data[3];
+                                if (tempPointer->tagData->counter == 1) {
+                                        u_int16_t result = (tempPointer->tagData->data[2]<<8) | tempPointer->tagData->data[3];
                                         printf("%d", result);
                                 } else {
-                                        for (u_int32_t i = 0; i<tempPointer->tagData.dataLen; i+=2) {
-                                                if (tempPointer->tagData.dataLen <= i+1 ) {
+                                        for (u_int32_t i = 0; i<tempPointer->tagData->dataLen; i+=2) {
+                                                if (tempPointer->tagData->dataLen <= i+1 ) {
                                                         continue;
                                                 }
-                                                u_int16_t result = (tempPointer->tagData.data[i]<<8) | tempPointer->tagData.data[i+1];
+                                                u_int16_t result = (tempPointer->tagData->data[i]<<8) | tempPointer->tagData->data[i+1];
                                                 printf(" %d", result);
                                         }
                                 }
                                 break;
                         case EXIF_LONG:
-                                for (u_int32_t i = 0; i<tempPointer->tagData.dataLen;i+=4){
-                                        if (tempPointer->tagData.dataLen <= i+3 ) {
+                                for (u_int32_t i = 0; i<tempPointer->tagData->dataLen;i+=4){
+                                        if (tempPointer->tagData->dataLen <= i+3 ) {
                                                 continue;
                                         }
-                                        u_int32_t result = (tempPointer->tagData.data[i]<<24) | (tempPointer->tagData.data[i+1]<<16) | (tempPointer->tagData.data[i+2]<<8) | tempPointer->tagData.data[i+3];
+                                        u_int32_t result = (tempPointer->tagData->data[i]<<24) | (tempPointer->tagData->data[i+1]<<16) | (tempPointer->tagData->data[i+2]<<8) | tempPointer->tagData->data[i+3];
                                         printf(" %d", result);
                                         
                                 }
                                 break;
                         case EXIF_RATIONAL:
-                                for (u_int32_t i = 0; i<tempPointer->tagData.dataLen;i+=8){
-                                        if (tempPointer->tagData.dataLen <= i+7 ) {
+                                for (u_int32_t i = 0; i<tempPointer->tagData->dataLen;i+=8){
+                                        if (tempPointer->tagData->dataLen <= i+7 ) {
                                                 continue;
                                         }
-                                        u_int32_t resultFirst = (tempPointer->tagData.data[i]<<24) | (tempPointer->tagData.data[i+1]<<16) | (tempPointer->tagData.data[i+2]<<8) | tempPointer->tagData.data[i+3];
-                                        u_int32_t resultSecond = (tempPointer->tagData.data[i+4]<<24) | (tempPointer->tagData.data[i+5]<<16) | (tempPointer->tagData.data[i+6]<<8) | tempPointer->tagData.data[i+7];
+                                        u_int32_t resultFirst = (tempPointer->tagData->data[i]<<24) | (tempPointer->tagData->data[i+1]<<16) | (tempPointer->tagData->data[i+2]<<8) | tempPointer->tagData->data[i+3];
+                                        u_int32_t resultSecond = (tempPointer->tagData->data[i+4]<<24) | (tempPointer->tagData->data[i+5]<<16) | (tempPointer->tagData->data[i+6]<<8) | tempPointer->tagData->data[i+7];
                                         printf("(%d)/(%d)", resultFirst, resultSecond);
                                         
                                 }
                                 break;
                         case EXIF_SBYTE:
-                                printf("%s", (char*)tempPointer->tagData.data);
+                                printf("%s", (char*)tempPointer->tagData->data);
                                 break;
                         case EXIF_UNDEFINED:
-                                printf("%s", (char*)tempPointer->tagData.data);
+                                for (int i=0; i<tempPointer->tagData->dataLen; i++){
+                                        if (tempPointer->tagData->data[i] == 0x00){
+                                                continue;
+                                        }
+                                        printf("%c", tempPointer->tagData->data[i]);
+                                }
                                 break;
                         case EXIF_SSHORT:
-                                if (tempPointer->tagData.counter == 1) {
-                                        int16_t result = ((char)tempPointer->tagData.data[2]<<8) | (char)tempPointer->tagData.data[3];
+                                if (tempPointer->tagData->counter == 1) {
+                                        int16_t result = ((char)tempPointer->tagData->data[2]<<8) | (char)tempPointer->tagData->data[3];
                                         printf("%d", result);
                                 } else {
-                                        for (u_int32_t i = 0; i<tempPointer->tagData.dataLen; i+=2) {
-                                                if (tempPointer->tagData.dataLen <= i+1 ) {
+                                        for (u_int32_t i = 0; i<tempPointer->tagData->dataLen; i+=2) {
+                                                if (tempPointer->tagData->dataLen <= i+1 ) {
                                                         continue;
                                                 }
-                                                int16_t result = ((char)tempPointer->tagData.data[i]<<8) | (char)tempPointer->tagData.data[i+1];
+                                                int16_t result = ((char)tempPointer->tagData->data[i]<<8) | (char)tempPointer->tagData->data[i+1];
                                                 printf(" %d", result);
                                         }
                                 }
                                 break;
                         case EXIF_SLONG:
-                                for (u_int32_t i = 0; i<tempPointer->tagData.dataLen;i+=4){
-                                        if (tempPointer->tagData.dataLen <= i+3 ) {
+                                for (u_int32_t i = 0; i<tempPointer->tagData->dataLen;i+=4){
+                                        if (tempPointer->tagData->dataLen <= i+3 ) {
                                                 continue;
                                         }
-                                        int32_t result = ((char)tempPointer->tagData.data[i]<<24) | ((char)tempPointer->tagData.data[i+1]<<16) | ((char)tempPointer->tagData.data[i+2]<<8) | (char)tempPointer->tagData.data[i+3];
+                                        int32_t result = ((char)tempPointer->tagData->data[i]<<24) | ((char)tempPointer->tagData->data[i+1]<<16) | ((char)tempPointer->tagData->data[i+2]<<8) | (char)tempPointer->tagData->data[i+3];
                                         printf(" %d", result);
                                         
                                 }
                                 break;
                         case EXIF_SRATIONAL:
-                                for (u_int32_t i = 0; i<tempPointer->tagData.dataLen;i+=8){
-                                        if (tempPointer->tagData.dataLen <= i+7 ) {
+                                for (u_int32_t i = 0; i<tempPointer->tagData->dataLen;i+=8){
+                                        if (tempPointer->tagData->dataLen <= i+7 ) {
                                                 continue;
                                         }
-                                        int32_t resultFirst = ((char)tempPointer->tagData.data[i]<<24) | ((char)tempPointer->tagData.data[i+1]<<16) | ((char)tempPointer->tagData.data[i+2]<<8) | (char)tempPointer->tagData.data[i+3];
-                                        int32_t resultSecond = ((char)tempPointer->tagData.data[i+4]<<24) | ((char)tempPointer->tagData.data[i+5]<<16) | ((char)tempPointer->tagData.data[i+6]<<8) | (char)tempPointer->tagData.data[i+7];
+                                        int32_t resultFirst = ((char)tempPointer->tagData->data[i]<<24) | ((char)tempPointer->tagData->data[i+1]<<16) | ((char)tempPointer->tagData->data[i+2]<<8) | (char)tempPointer->tagData->data[i+3];
+                                        int32_t resultSecond = ((char)tempPointer->tagData->data[i+4]<<24) | ((char)tempPointer->tagData->data[i+5]<<16) | ((char)tempPointer->tagData->data[i+6]<<8) | (char)tempPointer->tagData->data[i+7];
                                         printf("(%d)/(%d)", resultFirst, resultSecond);
                                 }
                                 break;
                         case EXIF_FLOAT:
-                                for (u_int32_t i = 0; i<tempPointer->tagData.dataLen;i+=4){
-                                        if (tempPointer->tagData.dataLen <= i+3 ) {
+                                for (u_int32_t i = 0; i<tempPointer->tagData->dataLen;i+=4){
+                                        if (tempPointer->tagData->dataLen <= i+3 ) {
                                                 continue;
                                         }
-                                        float result = ((char)tempPointer->tagData.data[i]<<24) | ((char)tempPointer->tagData.data[i+1]<<16) | ((char)tempPointer->tagData.data[i+2]<<8) | (char)tempPointer->tagData.data[i+3];
+                                        float result = ((char)tempPointer->tagData->data[i]<<24) | ((char)tempPointer->tagData->data[i+1]<<16) | ((char)tempPointer->tagData->data[i+2]<<8) | (char)tempPointer->tagData->data[i+3];
                                         printf(" %.2f", result);
                                         
                                 }
                                 break;
                         case EXIF_DOUBLE:
-                                for (u_int32_t i = 0; i<tempPointer->tagData.dataLen;i+=8){
-                                        if (tempPointer->tagData.dataLen <= i+7 ) {
+                                for (u_int32_t i = 0; i<tempPointer->tagData->dataLen;i+=8){
+                                        if (tempPointer->tagData->dataLen <= i+7 ) {
                                                 continue;
                                         }
-                                        char byteArray[8] = {tempPointer->tagData.data[i],tempPointer->tagData.data[i+1],tempPointer->tagData.data[i+2],tempPointer->tagData.data[i+3],tempPointer->tagData.data[i+4],tempPointer->tagData.data[i+5],tempPointer->tagData.data[i+6],tempPointer->tagData.data[i+7]};
+                                        char byteArray[8] = {tempPointer->tagData->data[i],tempPointer->tagData->data[i+1],tempPointer->tagData->data[i+2],tempPointer->tagData->data[i+3],tempPointer->tagData->data[i+4],tempPointer->tagData->data[i+5],tempPointer->tagData->data[i+6],tempPointer->tagData->data[i+7]};
                                         double resultFirst = *((double*)byteArray);
                                         printf("%.2lf", resultFirst);
                                 }
@@ -266,7 +296,7 @@ unsigned int crc32b(unsigned char *message, int len) {
 }
 
 int isValidTag(ExifTags tag) {
-        if (tag!=EXIF_MAKE && tag!=EXIF_MODEL && tag!=EXIF_EXPOSURE && tag!=EXIF_FNUMBER && tag!=EXIF_ISOSPEEDRATING && tag!=EXIF_GPSLATITUDE && tag!=EXIF_GPSLONGITUDE && tag !=EXIF_GPSLATITUDEREF && tag!=EXIF_GPSLONGITUDEREF && tag!=EXIF_DATETIME && tag!=EXIF_IMAGEDESCRIPTION) {
+        if (tag!=EXIF_USERCOMMENT && tag!=EXIF_MAKE && tag!=EXIF_MODEL && tag!=EXIF_EXPOSURE && tag!=EXIF_FNUMBER && tag!=EXIF_ISOSPEEDRATING && tag!=EXIF_GPSLATITUDE && tag!=EXIF_GPSLONGITUDE && tag !=EXIF_GPSLATITUDEREF && tag!=EXIF_GPSLONGITUDEREF && tag!=EXIF_DATETIME && tag!=EXIF_IMAGEDESCRIPTION) {
                 return 0;
         }
         return 1;
@@ -314,7 +344,10 @@ int readMetadataPNG(FILE* fp_in) {
     		    printf("%c",metaData[i]);
 		}
 		printf("\n");
-		free(metaData);
+                if (metaData!=NULL) {
+		        free(metaData);
+                        metaData = NULL;
+                }
 	    }
         } else if (currentByte == 0x49){
 	    unsigned char bytes[3] = {0};
@@ -468,7 +501,7 @@ int readMetadataPNG(FILE* fp_in) {
     return 0;
 }
 
-int parseExifField(FILE* fp_in, ExifData* tagData ,long startTIFF) {
+int parseExifField(FILE* fp_in, ExifData* tagData ,long startTIFF, u_int16_t blockLenght) {
         unsigned char type = 0x00;
         fseek(fp_in,1,SEEK_CUR);
         int result = fread(&type,1,1,fp_in);
@@ -476,12 +509,12 @@ int parseExifField(FILE* fp_in, ExifData* tagData ,long startTIFF) {
                 return 0;
         }
         if (type==0x00 || type>0x12) {
-                return 0;
+                return -2;
         }
         unsigned char countBytes[4] = {0x00,0x00,0x00,0x00};
         result = fread(countBytes,1,4,fp_in);
         if (result < 4 || !fp_in) {
-                return 0;
+                return -2-result;
         }
         ExifFormats format = (ExifFormats)type;
         u_int32_t count = (countBytes[0]<<24) | (countBytes[1]<<16) | (countBytes[2]<<8) | countBytes[3];
@@ -532,25 +565,25 @@ int parseExifField(FILE* fp_in, ExifData* tagData ,long startTIFF) {
                         break;
         }
         u_int32_t bytesForRead = count * countMultiple;
+        if (bytesForRead>blockLenght) {
+                return -6;
+        }
         tagData->format = format;
         tagData->isSigned = isSigned;
         tagData->counter = count;
-
         if (bytesForRead <= 4){
                 tagData->data = (unsigned char*)malloc(4);
                 tagData->dataLen = 4;
                 result = fread(tagData->data,1,4,fp_in);
                 if (result!=4 || ! fp_in) {
-                        free(tagData->data);
-                        return 0;
+                        return -6-result;
                 }
-                return 1;
+                return result+6;
         }
-
         unsigned char offsetBytes[4] = {0x00,0x00,0x00,0x00};
         result = fread(offsetBytes,1,4,fp_in);
         if (result != 4 || !fp_in) {
-                return 0;
+                return 6-result;
         }
         u_int32_t offset = (offsetBytes[0]<<24) | (offsetBytes[1]<<16) | (offsetBytes[2]<<8) | offsetBytes[3];
         long currentOffset = ftell(fp_in);
@@ -560,15 +593,13 @@ int parseExifField(FILE* fp_in, ExifData* tagData ,long startTIFF) {
 
         u_int32_t readResult = fread(tagData->data, 1, tagData->dataLen, fp_in);
         if (!fp_in) {
-                free(tagData->data);
-                return 0;
+                return -10-readResult;
         }
         fseek(fp_in,currentOffset,SEEK_SET);
         if (readResult!=tagData->dataLen) {
-                free(tagData->data);
-                return 0;
+                return -10-readResult;
         }
-        return 1;
+        return readResult+10;
 }
 
 int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
@@ -581,14 +612,18 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
                         continue;
                 }
                 ExifTags tag = (ExifTags)((currentBytes[0]<<8)|currentBytes[1]);
+                
                 if (isValidTag(tag) == 0) {
                         fseek(fp_in,-1,SEEK_CUR);
                         continue;
                 }
-                ExifInfo* tagInfo = (ExifInfo*)malloc(sizeof(tagInfo));
-                tagInfo->tagType = tag;
-
-                switch (tagInfo->tagType) {
+                ExifInfo* tagInfo = (ExifInfo*)malloc(sizeof(ExifInfo));
+                tagInfo->next = NULL;
+                tagInfo->prev = NULL;
+                tagInfo->exifName = NULL;
+                tagInfo->tagData = NULL;
+                tagInfo->tagType = (ExifTags)tag;
+                switch ((ExifTags)tagInfo->tagType) {
                         case EXIF_MAKE:
                                 tagInfo->exifName = malloc(strlen("Производитель камеры") + 1);
                                 if (tagInfo->exifName != NULL) {
@@ -674,13 +709,17 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
                                 }
                                 break;
                 }
-
-                ExifData exifData;
-                int parseRes = parseExifField(fp_in, &exifData, tiffStart);
-                if (parseRes == 0) {
-                        if (exifData.data != NULL) {
-                                free(exifData.data);
-                                exifData.data = NULL;
+                tagInfo->tagData = (ExifData*)malloc(sizeof(ExifData));
+                tagInfo->tagData->data = NULL;
+                int parseRes = parseExifField(fp_in, tagInfo->tagData, tiffStart, length);
+                if (parseRes <= 0) {
+                        if (tagInfo->tagData->data != NULL) {
+                                free(tagInfo->tagData->data);
+                                tagInfo->tagData->data = NULL;
+                        }
+                         if (tagInfo->tagData != NULL) {
+                                free(tagInfo->tagData);
+                                tagInfo->tagData = NULL;
                         }
                         if (tagInfo->exifName!=NULL) {
                                 free(tagInfo->exifName);
@@ -688,13 +727,16 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
                         }
                         if (tagInfo!=NULL) {
                                 free(tagInfo);
+                                tagInfo = NULL;
                         }
+                        counter+=parseRes-1;
+                        fseek(fp_in,parseRes-1,SEEK_CUR);
                         continue;
                 }
-
-                tagInfo->tagData = exifData;
+                counter+=parseRes;
                 append(startPoint, tagInfo);
         }
+        return 1;
 }
 
 int readMetadataJPEG(FILE* fp_in) {
@@ -703,6 +745,10 @@ int readMetadataJPEG(FILE* fp_in) {
                 return 1;
         }
         ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
+        startPoint->next = NULL;
+        startPoint->prev = NULL;
+        startPoint->exifName = NULL;
+        startPoint->tagData = NULL;
         while(fread(&currentByte,1,1,fp_in) == 1) {
                 if (currentByte == 0x4a) {
                         unsigned char bytesFIF[3] = {0};
@@ -772,7 +818,10 @@ int readMetadataJPEG(FILE* fp_in) {
                         fread(comment,1,length,fp_in);
                         comment[length] = '\0';
                         printf("Найден комментарий: %s\n",comment);
-                        free(comment);
+                        if (comment!=NULL) {
+                                free(comment);
+                                comment = NULL;
+                        }
                 }
                 if (currentByte == 0xc0) {
                         printf("Тип маркера: SOF0 (Baseline DCT)\n");
@@ -799,7 +848,7 @@ int readMetadataJPEG(FILE* fp_in) {
                 printf("Ширина изображения: %d\n", width);
                 printf("Высота изображения: %d\n", height);
         }
-        freeExifInfo(startPoint);
+        clearExifInfo(startPoint);
         return 0;
 }
 
@@ -1428,7 +1477,10 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         printf("Изменение исходного файла: Успешно\n\n");
         fclose(fp_in_copied);
         fclose(fp_out);
-        free(new_filename);
+        if (new_filename!=NULL){
+                free(new_filename);
+                new_filename = NULL;
+        }
 }
 int addMetadata(char* filename, char* header, char* data, int argc, char** argv) {
         struct stat fileInfo;
@@ -1821,7 +1873,10 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                 fwrite(newCRC32CharTXT,4,1,fp_out);
                 printf("Изменение метаданных: Успешно\n\n");
                 headerFound = 1;
-                free(newMetadata);
+                if (newMetadata!=NULL){
+                        free(newMetadata);
+                        newMetadata = NULL;
+                }
         }
         if (fp_in_copied) fclose(fp_in_copied);
         if(fp_out) fclose(fp_out);
