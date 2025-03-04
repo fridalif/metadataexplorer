@@ -1225,7 +1225,25 @@ CLIExifArgument constructorCLIExifArgument(char* header) {
         newCLIExifArg.header = header;
         return newCLIExifArg;
 }
-int addMetadataJPEG(FILE* fp_in, char* header, char* data, int argc, char** argv) {
+
+int getJFIFVersionArgument(int argc, char** argv, char* buffer) {
+        for (int i = 0; i < argc; i++) {
+                if (strcmp("--jfifVersion",argv[i]) == 0 && argc > i+1) {
+                        int jfifVersion = atoi(argv[i+1]);
+                        u_int16_t jfifUnsigned = (u_int16_t)jfifVersion;
+                        unsigned char highByte = (jfifUnsigned >> 8) & 0xFF;
+                        unsigned char lowByte = jfifUnsigned & 0xFF;
+                        buffer[0] = highByte;
+                        buffer[1] = lowByte;
+                        return 0;
+                }
+        }
+        return -1;
+}
+int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
+        if (!fp_in){
+                return -1;
+        }
         CLIExifArgument make = constructorCLIExifArgument("--make");
         CLIExifArgument model = constructorCLIExifArgument("--model");
         CLIExifArgument exposure = constructorCLIExifArgument("--exposure");
@@ -1238,6 +1256,28 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, int argc, char** argv
         CLIExifArgument longitudeRef = constructorCLIExifArgument("--lonRef");
         CLIExifArgument datetime = constructorCLIExifArgument("--dt");
         CLIExifArgument imageDescription = constructorCLIExifArgument("--imageDescription");
+        ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
+        startPoint->next = NULL;
+        startPoint->prev = NULL;
+        startPoint->exifName = NULL;
+        startPoint->tagData = NULL;
+        unsigned char jfifBuffer[2] = {0x00,0x00};
+        int hasJFIFCLI = getJFIFVersionArgument(argc, argv, jfifBuffer);
+        unsigned char currentByte = 0x00;
+        printf("Копирование исходного файла в %s_add_copy\n", filename);
+        char* new_filename = (char*)malloc(strlen(filename) + strlen("_add_copy") + 1);
+        if (new_filename == NULL) {
+                printf("Ошибка выделения памяти\n");
+                return 1;
+        }
+        strcpy(new_filename, filename);
+        strcat(new_filename, "_add_copy");
+
+        FILE* fp_out = fopen(new_filename,"wb");
+        while(fp_in && fread(&currentByte,1,1,fp_in) == 1) {
+                fwrite(&currentByte,1,1,fp_out);
+        }
+        clearExifInfo(startPoint);
         return 0;
 }
 
