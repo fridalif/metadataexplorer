@@ -1192,6 +1192,56 @@ int getArgumentSize(int argc, char** argv, char* flag) {
         return -1;
 }
 
+typedef struct {
+        char* header;
+        unsigned char* data;
+        ExifFormats format;
+} CLIExifArgument;
+
+int getExifArgumentFromCLI(CLIExifArgument* argument, int argc, char** argv) {
+        for (int i = 1; i < argc; i++) {
+                if (strcmp(argument->header,argv[i]) == 0) {
+                        if (argc<i+4) {
+                                continue;
+                        }
+                        if (strcmp("--type",argv[i+2])!=0) {
+                                continue;
+                        }
+                        int dataType = atoi(argv[i+3]);
+                        if (dataType<=0 || dataType>12) {
+                                continue;
+                        }
+                        argument->data = argv[i+1];
+                        argument->format = (ExifFormats)((unsigned char)dataType);
+                        return 1;
+                }
+        }
+        return -1;
+}
+
+CLIExifArgument constructorCLIExifArgument(char* header) {
+        CLIExifArgument newCLIExifArg;
+        newCLIExifArg.data = NULL;
+        newCLIExifArg.header = header;
+        return newCLIExifArg;
+}
+int addMetadataJPEG(FILE* fp_in, char* header, char* data, int argc, char** argv) {
+        CLIExifArgument make = constructorCLIExifArgument("--make");
+        CLIExifArgument model = constructorCLIExifArgument("--model");
+        CLIExifArgument exposure = constructorCLIExifArgument("--exposure");
+        CLIExifArgument FNumber = constructorCLIExifArgument("--fnumber");
+        CLIExifArgument ISR = constructorCLIExifArgument("--isr");
+        CLIExifArgument userComment = constructorCLIExifArgument("--usercomment");
+        CLIExifArgument latitude = constructorCLIExifArgument("--lat");
+        CLIExifArgument longitude = constructorCLIExifArgument("--lon");
+        CLIExifArgument latitudeRef = constructorCLIExifArgument("--latRef");
+        CLIExifArgument longitudeRef = constructorCLIExifArgument("--lonRef");
+        CLIExifArgument datetime = constructorCLIExifArgument("--dt");
+        CLIExifArgument imageDescription = constructorCLIExifArgument("--imageDescription");
+        return 0;
+}
+
+
 int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
         printf("Изменение заголовка PNG\n");
         printf("-----------------------\n");
