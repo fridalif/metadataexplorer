@@ -1277,10 +1277,41 @@ int parseShortCLI(char* data, u_int16_t* numbersArray) {
         return realCounter;
 }
 
+int parseSShortCLI(char* data, int16_t* numbersArray) {
+        int realCounter = 0;
+        int16_t tempNumber = 0;
+        int dataLen = strlen(data);
+        int isNegative = 1;
+        for (int i = 0; i < dataLen; i++) {
+                if (data[i] == '-') {
+                        isNegative = -1;
+                        continue;
+                }
+                if (data[i] == ';') {
+                        numbersArray[realCounter] = tempNumber*isNegative;
+                        isNegative = 1;
+                        tempNumber = 0;
+                        realCounter++;
+                        continue;
+                }
+                tempNumber*=10;
+                char currentElement[1] = {data[i]};
+                if (currentElement[0] == '0') {
+                        continue;
+                }
+                int currentNumber = atoi(currentElement);
+                tempNumber+=(int16_t)currentNumber;
+        }
+        numbersArray[realCounter] = tempNumber;
+        realCounter++;
+        return realCounter;
+}
+
+
 
 int parseLongCLI(char* data, u_int32_t* numbersArray) {
         int realCounter = 0;
-        u_int16_t tempNumber = 0;
+        u_int32_t tempNumber = 0;
         int dataLen = strlen(data);
         for (int i = 0; i < dataLen; i++) {
                 if (data[i] == ';') {
@@ -1302,26 +1333,207 @@ int parseLongCLI(char* data, u_int32_t* numbersArray) {
         return realCounter;
 }
 
+int parseSLongCLI(char* data, int32_t* numbersArray) {
+        int realCounter = 0;
+        int32_t tempNumber = 0;
+        int dataLen = strlen(data);
+        int isNegative = 1;
+        for (int i = 0; i < dataLen; i++) {
+                if (data[i] == '-') {
+                        isNegative = -1;
+                        continue;
+                }
+                if (data[i] == ';') {
+                        numbersArray[realCounter] = tempNumber*isNegative;
+                        isNegative = 1;
+                        tempNumber = 0;
+                        realCounter++;
+                        continue;
+                }
+                tempNumber*=10;
+                char currentElement[1] = {data[i]};
+                if (currentElement[0] == '0') {
+                        continue;
+                }
+                int currentNumber = atoi(currentElement);
+                tempNumber+=(int32_t)currentNumber;
+        }
+        numbersArray[realCounter] = tempNumber;
+        realCounter++;
+        return realCounter;
+}
+
+int parseRationalCLI(char* data, u_int32_t* numbersArray) {
+        int realCounter = 0;
+        u_int32_t tempNumber = 0;
+        int dataLen = strlen(data);
+        int isDelim = -1;
+        for (int i = 0; i < dataLen; i++) {
+                if (data[i] == ';') {
+                        numbersArray[realCounter] = tempNumber;
+                        tempNumber = 0;
+                        if (isDelim == -1) {
+                                numbersArray[realCounter+1] = 1;
+                                realCounter++;
+                        }
+                        isDelim = -1;
+                        realCounter++;
+                        continue;
+                } 
+                if (data[i] == '/') {
+                        numbersArray[realCounter] = tempNumber;
+                        tempNumber = 0;
+                        isDelim = 1;
+                        realCounter++;
+                        continue;  
+                }
+                tempNumber*=10;
+                char currentElement[1] = {data[i]};
+                if (currentElement[0] == '0') {
+                        continue;
+                }
+                int currentNumber = atoi(currentElement);
+                tempNumber+=(u_int32_t)currentNumber;
+        }
+        numbersArray[realCounter] = tempNumber;
+        if (isDelim == -1) {
+                numbersArray[realCounter+1] = 1;
+                realCounter++;
+        }
+        realCounter++;
+        return realCounter;
+}
+
+
+int parseSRationalCLI(char* data, int32_t* numbersArray) {
+        int realCounter = 0;
+        int32_t tempNumber = 0;
+        int dataLen = strlen(data);
+        int isDelim = -1;
+        int isNegative = 1;
+        for (int i = 0; i < dataLen; i++) {
+                if (data[i] == '-') {
+                        isNegative = -1;
+                        continue;
+                }
+                if (data[i] == ';') {
+                        numbersArray[realCounter] = tempNumber*isNegative;
+                        isNegative = 1;
+                        tempNumber = 0;
+                        if (isDelim == -1) {
+                                numbersArray[realCounter+1] = 1;
+                                realCounter++;
+                        }
+                        isDelim = -1;
+                        realCounter++;
+                        continue;
+                } 
+                if (data[i] == '/') {
+                        numbersArray[realCounter] = tempNumber;
+                        tempNumber = 0;
+                        isDelim = 1;
+                        realCounter++;
+                        continue;  
+                }
+                tempNumber*=10;
+                char currentElement[1] = {data[i]};
+                if (currentElement[0] == '0') {
+                        continue;
+                }
+                int currentNumber = atoi(currentElement);
+                tempNumber+=(int32_t)currentNumber;
+        }
+        numbersArray[realCounter] = tempNumber;
+        if (isDelim == -1) {
+                numbersArray[realCounter+1] = 1;
+                realCounter++;
+        }
+        realCounter++;
+        return realCounter;
+}
+
+
+int parseFloatCLI(char* data, float* numbersArray) {
+        int realCounter = 0;
+        int tempCounter = 0;
+        int prevPos = 0;
+        int dataLen = strlen(data);
+        for (int i=0; i < dataLen; i++) {
+                if (data[i]!=';') {
+                        tempCounter++;
+                        continue;
+                }
+                tempCounter++;
+                char* currentString = (char*)malloc(tempCounter);
+                for (int j = prevPos+1;j<prevPos+tempCounter;j++) {
+                        currentString[j-prevPos-1] = data[j];
+                }
+                currentString[tempCounter] = '\0';
+                prevPos = i;
+                tempCounter = 0;
+                float result = (float)atof(currentString);
+                numbersArray[realCounter] = result;
+                realCounter++;
+                free(currentString);
+        }
+        char* tempString = (char*)malloc(dataLen-prevPos);
+        for (int i=prevPos+1;i < dataLen; i++) {
+                tempString[i-prevPos-1] = data[i];
+        }
+        tempString[dataLen-prevPos-1] = '\0';
+        float result = (float)atof(tempString);
+        numbersArray[realCounter] = result;
+        realCounter++;
+        free(tempString);
+        return realCounter;
+}
+
+
+int parseDoubleCLI(char* data, double* numbersArray) {
+        int realCounter = 0;
+        int tempCounter = 0;
+        int prevPos = 0;
+        int dataLen = strlen(data);
+        for (int i=0; i < dataLen; i++) {
+                if (data[i]!=';') {
+                        tempCounter++;
+                        continue;
+                }
+                tempCounter++;
+                char* currentString = (char*)malloc(tempCounter);
+                for (int j = prevPos+1;j<prevPos+tempCounter;j++) {
+                        currentString[j-prevPos-1] = data[j];
+                }
+                currentString[tempCounter] = '\0';
+                prevPos = i;
+                tempCounter = 0;
+                double result = atof(currentString);
+                numbersArray[realCounter] = result;
+                realCounter++;
+                free(currentString);
+        }
+        char* tempString = (char*)malloc(dataLen-prevPos);
+        for (int i=prevPos+1;i < dataLen; i++) {
+                tempString[i-prevPos-1] = data[i];
+        }
+        tempString[dataLen-prevPos-1] = '\0';
+        double result = atof(tempString);
+        numbersArray[realCounter] = result;
+        realCounter++;
+        free(tempString);
+        return realCounter;
+}
+
+
 void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags tagType) {
         newNode->next = NULL;
         newNode->prev = NULL;
         newNode->exifName = NULL;
         newNode->exifNameLen = 0;
         newNode->tagType = tagType;
-        /*
-                        EXIF_BYTE       = 0x01,  
-        EXIF_ASCII      = 0x02,  
-        EXIF_SHORT      = 0x03,  
-        EXIF_LONG       = 0x04,  
-        EXIF_RATIONAL   = 0x05,  
-        EXIF_SBYTE      = 0x06,  
-        EXIF_UNDEFINED  = 0x07,  
-        EXIF_SSHORT     = 0x08,  
-        EXIF_SLONG      = 0x09,  
-        EXIF_SRATIONAL  = 0x10,  
-        EXIF_FLOAT      = 0x11,  
-        EXIF_DOUBLE     = 0x12   
-        */
+        int count = 0;
+        int realCounter = 0;
+        unsigned char* dataArray = NULL;
         ExifData* newData = (ExifData*)malloc(sizeof(ExifData));
         switch (argument.format) {
                 case EXIF_BYTE:
@@ -1335,38 +1547,154 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         newData->dataLen = strlen(argument.data);
                         break;
                 case EXIF_SHORT:
-                        int count = argumentsCount(argument.data);
-                        u_int16_t* elementsArray = (u_int16_t*)malloc(count*2);
-                        int realCounter = parseShortCLI(argument.data,elementsArray);
-                        unsigned char* dataArray = (unsigned char*)malloc(realCounter*2); 
+                        count = argumentsCount(argument.data);
+                        u_int16_t* elementsArrayUI16 = (u_int16_t*)malloc(count*2);
+                        realCounter = parseShortCLI(argument.data,elementsArrayUI16);
+                        dataArray = (unsigned char*)malloc(realCounter*2); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[2*i] = elementsArray[i]>>8 && 0xff;
-                                dataArray[2*i+1] = elementsArray[i] && 0xff;
+                                dataArray[2*i] = elementsArrayUI16[i]>>8 && 0xff;
+                                dataArray[2*i+1] = elementsArrayUI16[i] && 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter;
                         newData->dataLen = 2*realCounter;
                         newData->isSigned = 0;
-                        free(elementsArray);
+                        free(elementsArrayUI16);
                         break;
                 case EXIF_LONG:
-                        int count = argumentsCount(argument.data);
-                        u_int32_t* elementsArray = (u_int32_t*)malloc(count*2);
-                        int realCounter = parseLongCLI(argument.data,elementsArray);
-                        unsigned char* dataArray = (unsigned char*)malloc(realCounter*4); 
+                        count = argumentsCount(argument.data);
+                        u_int32_t* elementsArrayUI32 = (u_int32_t*)malloc(count*4);
+                        realCounter = parseLongCLI(argument.data,elementsArrayUI32);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[4*i] = elementsArray[i]>>24 && 0xff;
-                                dataArray[4*i+1] = elementsArray[i]>>16 && 0xff;
-                                dataArray[4*i+2] = elementsArray[i]>>8 && 0xff;
-                                dataArray[4*i+3] = elementsArray[i] && 0xff;
+                                dataArray[4*i] = elementsArrayUI32[i]>>24 && 0xff;
+                                dataArray[4*i+1] = elementsArrayUI32[i]>>16 && 0xff;
+                                dataArray[4*i+2] = elementsArrayUI32[i]>>8 && 0xff;
+                                dataArray[4*i+3] = elementsArrayUI32[i] && 0xff;
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter;
+                        newData->dataLen = 4*realCounter;
+                        newData->isSigned = 0;
+                        free(elementsArrayUI32);
+                        break;
+                case EXIF_RATIONAL:
+                        count = argumentsCount(argument.data);
+                        u_int32_t* elementsArrayRAT = (u_int32_t*)malloc(count*8);
+                        realCounter = parseRationalCLI(argument.data,elementsArrayRAT);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArrayRAT[i]>>24 && 0xff;
+                                dataArray[4*i+1] = elementsArrayRAT[i]>>16 && 0xff;
+                                dataArray[4*i+2] = elementsArrayRAT[i]>>8 && 0xff;
+                                dataArray[4*i+3] = elementsArrayRAT[i] && 0xff;
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter/2;
+                        newData->dataLen = 4*realCounter;
+                        newData->isSigned = 0;
+                        free(elementsArrayRAT);
+                case EXIF_SBYTE:
+                        newData->data = argument.data;
+                        newData->counter = strlen(argument.data);
+                        newData->dataLen = strlen(argument.data);
+                        break;
+                case EXIF_UNDEFINED:
+                        newData->data = argument.data;
+                        newData->counter = strlen(argument.data);
+                        newData->dataLen = strlen(argument.data);
+                        break;
+                case EXIF_SSHORT:
+                        count = argumentsCount(argument.data);
+                        int16_t* elementsArrayI16 = (int16_t*)malloc(count*2);
+                        realCounter = parseSShortCLI(argument.data,elementsArrayI16);
+                        dataArray = (unsigned char*)malloc(realCounter*2); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[2*i] = elementsArrayI16[i]>>8 && 0xff;
+                                dataArray[2*i+1] = elementsArrayI16[i] && 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter;
                         newData->dataLen = 2*realCounter;
-                        newData->isSigned = 0;
-                        free(elementsArray);
+                        newData->isSigned = 1;
+                        free(elementsArrayI16);
                         break;
-
+                case EXIF_SLONG:
+                        count = argumentsCount(argument.data);
+                        int32_t* elementsArrayI32 = (int32_t*)malloc(count*4);
+                        realCounter = parseSLongCLI(argument.data,elementsArrayI32);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArrayI32[i]>>24 && 0xff;
+                                dataArray[4*i+1] = elementsArrayI32[i]>>16 && 0xff;
+                                dataArray[4*i+2] = elementsArrayI32[i]>>8 && 0xff;
+                                dataArray[4*i+3] = elementsArrayI32[i] && 0xff;
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter;
+                        newData->dataLen = 4*realCounter;
+                        newData->isSigned = 1;
+                        free(elementsArrayI32);
+                        break;
+                case EXIF_SRATIONAL:
+                        count = argumentsCount(argument.data);
+                        int32_t* elementsArraySRAT = (int32_t*)malloc(count*8);
+                        realCounter = parseSRationalCLI(argument.data,elementsArraySRAT);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArraySRAT[i]>>24 && 0xff;
+                                dataArray[4*i+1] = elementsArraySRAT[i]>>16 && 0xff;
+                                dataArray[4*i+2] = elementsArraySRAT[i]>>8 && 0xff;
+                                dataArray[4*i+3] = elementsArraySRAT[i] && 0xff;
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter/2;
+                        newData->dataLen = 4*realCounter;
+                        newData->isSigned = 1;
+                        free(elementsArraySRAT);
+                        break;
+                case EXIF_FLOAT:
+                        count = argumentsCount(argument.data);
+                        float* elementsArrayFloat = (float*)malloc(count*4);
+                        realCounter = parseFloatCLI(argument.data,elementsArrayFloat);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                u_int8_t bytes[sizeof(float)]; 
+                                memcpy(bytes, &elementsArrayFloat[i], sizeof(float));
+                                dataArray[4*i] = bytes[0];
+                                dataArray[4*i+1] = bytes[1];
+                                dataArray[4*i+2] = bytes[2];
+                                dataArray[4*i+3] = bytes[3];
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter;
+                        newData->dataLen = 4*realCounter;
+                        newData->isSigned = 1;
+                        free(elementsArrayFloat);
+                        break;
+                case EXIF_DOUBLE:
+                        count = argumentsCount(argument.data);
+                        double* elementsArrayDouble = (double*)malloc(count*8);
+                        realCounter = parseDoubleCLI(argument.data,elementsArrayDouble);
+                        dataArray = (unsigned char*)malloc(realCounter*8); 
+                        for (int i = 0; i < realCounter; i++) {
+                                u_int8_t bytes[sizeof(double)]; 
+                                memcpy(bytes, &elementsArrayDouble[i], sizeof(double));
+                                dataArray[8*i] = bytes[0];
+                                dataArray[8*i+1] = bytes[1];
+                                dataArray[8*i+2] = bytes[2];
+                                dataArray[8*i+3] = bytes[3];
+                                dataArray[8*i+4] = bytes[4];
+                                dataArray[8*i+5] = bytes[5];
+                                dataArray[8*i+6] = bytes[6];
+                                dataArray[8*i+7] = bytes[7];
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter;
+                        newData->dataLen = 8*realCounter;
+                        newData->isSigned = 1;
+                        free(elementsArrayDouble);
+                        break;
         }
         newData->format = argument.format;
         newNode->tagData = newData;
@@ -1455,7 +1783,7 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         if (fp_out){
                 fclose(fp_out);
         }
-        printf("Изменение исходного файла\n", filename);
+        printf("Изменение исходного файла: %s\n", filename);
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename,"wb");
         while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
