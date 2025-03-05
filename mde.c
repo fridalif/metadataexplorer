@@ -53,7 +53,7 @@ struct ExifInfo{
         char* exifName;
         u_int32_t exifNameLen;
         ExifTags tagType;
-        ExifData* tagData;  
+        ExifData* tagData;
 };
 
 int append(ExifInfo* start, ExifInfo* appendingItem) {
@@ -1242,22 +1242,162 @@ int getJFIFVersionArgument(int argc, char** argv, char* buffer) {
 }
 
 
+int argumentsCount(char* data) {
+        int dataLen = strlen(data);
+        int result = 1;
+        for (int i = 0; i < dataLen; i++) {
+                if (data[i] == ';') {
+                        result++;
+                }
+        }
+        return result;
+}
+
+int parseShortCLI(char* data, u_int16_t* numbersArray) {
+        int realCounter = 0;
+        u_int16_t tempNumber = 0;
+        int dataLen = strlen(data);
+        for (int i = 0; i < dataLen; i++) {
+                if (data[i] == ';') {
+                        numbersArray[realCounter] = tempNumber;
+                        tempNumber = 0;
+                        realCounter++;
+                        continue;
+                }
+                tempNumber*=10;
+                char currentElement[1] = {data[i]};
+                if (currentElement[0] == '0') {
+                        continue;
+                }
+                int currentNumber = atoi(currentElement);
+                tempNumber+=(u_int16_t)currentNumber;
+        }
+        numbersArray[realCounter] = tempNumber;
+        realCounter++;
+        return realCounter;
+}
+
+
+int parseLongCLI(char* data, u_int32_t* numbersArray) {
+        int realCounter = 0;
+        u_int16_t tempNumber = 0;
+        int dataLen = strlen(data);
+        for (int i = 0; i < dataLen; i++) {
+                if (data[i] == ';') {
+                        numbersArray[realCounter] = tempNumber;
+                        tempNumber = 0;
+                        realCounter++;
+                        continue;
+                }
+                tempNumber*=10;
+                char currentElement[1] = {data[i]};
+                if (currentElement[0] == '0') {
+                        continue;
+                }
+                int currentNumber = atoi(currentElement);
+                tempNumber+=(u_int32_t)currentNumber;
+        }
+        numbersArray[realCounter] = tempNumber;
+        realCounter++;
+        return realCounter;
+}
+
 void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags tagType) {
         newNode->next = NULL;
         newNode->prev = NULL;
         newNode->exifName = NULL;
         newNode->exifNameLen = 0;
         newNode->tagType = tagType;
+        /*
+                        EXIF_BYTE       = 0x01,  
+        EXIF_ASCII      = 0x02,  
+        EXIF_SHORT      = 0x03,  
+        EXIF_LONG       = 0x04,  
+        EXIF_RATIONAL   = 0x05,  
+        EXIF_SBYTE      = 0x06,  
+        EXIF_UNDEFINED  = 0x07,  
+        EXIF_SSHORT     = 0x08,  
+        EXIF_SLONG      = 0x09,  
+        EXIF_SRATIONAL  = 0x10,  
+        EXIF_FLOAT      = 0x11,  
+        EXIF_DOUBLE     = 0x12   
+        */
         ExifData* newData = (ExifData*)malloc(sizeof(ExifData));
-        newData->data = argument.data;
-        newData->counter = 0;
-        newData->dataLen = strlen(argument.data);
+        switch (argument.format) {
+                case EXIF_BYTE:
+                        newData->data = argument.data;
+                        newData->counter = strlen(argument.data);
+                        newData->dataLen = strlen(argument.data);
+                        break;
+                case EXIF_ASCII:
+                        newData->data = argument.data;
+                        newData->counter = strlen(argument.data);
+                        newData->dataLen = strlen(argument.data);
+                        break;
+                case EXIF_SHORT:
+                        int count = argumentsCount(argument.data);
+                        u_int16_t* elementsArray = (u_int16_t*)malloc(count*2);
+                        int realCounter = parseShortCLI(argument.data,elementsArray);
+                        unsigned char* dataArray = (unsigned char*)malloc(realCounter*2); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[2*i] = elementsArray[i]>>8 && 0xff;
+                                dataArray[2*i+1] = elementsArray[i] && 0xff;
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter;
+                        newData->dataLen = 2*realCounter;
+                        newData->isSigned = 0;
+                        free(elementsArray);
+                        break;
+                case EXIF_LONG:
+                        int count = argumentsCount(argument.data);
+                        u_int32_t* elementsArray = (u_int32_t*)malloc(count*2);
+                        int realCounter = parseLongCLI(argument.data,elementsArray);
+                        unsigned char* dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArray[i]>>24 && 0xff;
+                                dataArray[4*i+1] = elementsArray[i]>>16 && 0xff;
+                                dataArray[4*i+2] = elementsArray[i]>>8 && 0xff;
+                                dataArray[4*i+3] = elementsArray[i] && 0xff;
+                        }
+                        newData->data = dataArray;
+                        newData->counter = realCounter;
+                        newData->dataLen = 2*realCounter;
+                        newData->isSigned = 0;
+                        free(elementsArray);
+                        break;
+
+        }
         newData->format = argument.format;
         newNode->tagData = newData;
 }
 
-unsigned char* rebuildExif(ExifInfo* startNode) {
+u_int16_t countExifLen(ExifInfo* startNode) {
+        u_int16_t result = 0;
+        ExifInfo* next = startNode->next;
+        while (next!=NULL) {
+                if (next->tagData->data==NULL) {
+                        continue;
+                }
+                //tag_id
+                result+=2;
+                //tag_format
+                result+=2;
+                //counter units
+                result+=4;
+                //offset
+                result+=4;
+                if (next->tagData->dataLen>4) {
+                        result+=next->tagData->dataLen;
+                }
+                next = next->next;
+        }
+        return result;
+}
 
+void rebuildExif(ExifInfo* startNode, FILE* fp_out) {
+        u_int16_t exifLen = countExifLen(startNode);
+        unsigned char baseBytes[2] = {0xff, 0xe1};
 }
 
 int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
@@ -1354,7 +1494,8 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                 continue;
                         }
                         u_int16_t exifLen = (exifLenBytes[0]<<8)|exifLenBytes[1];
-                        parseJPEGAPPTag(fp_in,startPoint, exifLen);
+                        fseek(fp_in,2,SEEK_CUR);
+                        parseJPEGAPPTag(fp_in,startPoint, exifLen-4-2);
                         if (make.data!=NULL) {
                                 ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
                                 fillExifInfoFromCli(make,newNode, EXIF_MAKE);
@@ -1415,7 +1556,7 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                 fillExifInfoFromCli(imageDescription,newNode, EXIF_IMAGEDESCRIPTION);
                                 append(startPoint, newNode);
                         }
-                        rebuildExif(startPoint);  
+                        rebuildExif(startPoint, fp_out);  
                         continue;
                 }
                 fwrite(&currentByte,1,1,fp_out);
