@@ -1240,6 +1240,26 @@ int getJFIFVersionArgument(int argc, char** argv, char* buffer) {
         }
         return -1;
 }
+
+
+void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags tagType) {
+        newNode->next = NULL;
+        newNode->prev = NULL;
+        newNode->exifName = NULL;
+        newNode->exifNameLen = 0;
+        newNode->tagType = tagType;
+        ExifData* newData = (ExifData*)malloc(sizeof(ExifData));
+        newData->data = argument.data;
+        newData->counter = 0;
+        newData->dataLen = strlen(argument.data);
+        newData->format = argument.format;
+        newNode->tagData = newData;
+}
+
+unsigned char* rebuildExif(ExifInfo* startNode) {
+
+}
+
 int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
         if (!fp_in){
                 return -1;
@@ -1256,6 +1276,18 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         CLIExifArgument longitudeRef = constructorCLIExifArgument("--lonRef");
         CLIExifArgument datetime = constructorCLIExifArgument("--dt");
         CLIExifArgument imageDescription = constructorCLIExifArgument("--imageDescription");
+        getExifArgumentFromCLI(&make, argc, argv);
+        getExifArgumentFromCLI(&model, argc, argv);
+        getExifArgumentFromCLI(&exposure, argc, argv);
+        getExifArgumentFromCLI(&FNumber, argc, argv);
+        getExifArgumentFromCLI(&ISR, argc, argv);
+        getExifArgumentFromCLI(&userComment, argc, argv);
+        getExifArgumentFromCLI(&latitude, argc, argv);
+        getExifArgumentFromCLI(&latitudeRef, argc, argv);
+        getExifArgumentFromCLI(&longitude, argc, argv);
+        getExifArgumentFromCLI(&longitudeRef, argc, argv);
+        getExifArgumentFromCLI(&datetime, argc, argv);
+        getExifArgumentFromCLI(&imageDescription, argc, argv);
         ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
         startPoint->next = NULL;
         startPoint->prev = NULL;
@@ -1287,12 +1319,12 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename,"wb");
         while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
-                //Insert JFIF version
+                //JFIF version
                 if (currentByte == 0x4a && hasJFIFCLI != -1) {
                         fwrite(&currentByte,1,1,fp_out);
                         unsigned char bytesFIF[3];
                         int result = fread(bytesFIF,1,3,fp_in);
-                        if (result!=3 || bytesFIF[0]!=0x46 || bytesFIF[1]!=0x49 || bytesFIF[2]!=0x46) {
+                        if (result!=3 || !fp_in || bytesFIF[0]!=0x46 || bytesFIF[1]!=0x49 || bytesFIF[2]!=0x46) {
                                 fseek(fp_in,-3,SEEK_CUR);
                                 continue;
                         }
@@ -1301,6 +1333,92 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                         fseek(fp_in,4,SEEK_CUR);
                         continue;
                 }
+                //Exif
+                if (currentByte == 0xff) {
+                        unsigned char nextByte = 0x00;
+                        int result = fread(&nextByte,1,1,fp_in);
+                        if (result!=1 || !fp_in) {
+                                fwrite(&currentByte,1,1,fp_out);
+                                continue;
+                        }
+                        if (nextByte!=0xe1) {
+                                fwrite(&currentByte,1,1,fp_out);
+                                fseek(fp_in,-1,SEEK_CUR);
+                                continue;
+                        }
+                        unsigned char exifLenBytes[2];
+                        result = fread(exifLenBytes,1,2,fp_in);
+                        if (result!=2 || !fp_in) {
+                                fseek(fp_in,-3,SEEK_CUR);
+                                fwrite(&currentByte,1,1,fp_out);
+                                continue;
+                        }
+                        u_int16_t exifLen = (exifLenBytes[0]<<8)|exifLenBytes[1];
+                        parseJPEGAPPTag(fp_in,startPoint, exifLen);
+                        if (make.data!=NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(make,newNode, EXIF_MAKE);
+                                append(startPoint, newNode);
+                        }
+                        if (model.data!=NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(model,newNode, EXIF_MODEL);
+                                append(startPoint, newNode);
+                        }
+                        if (exposure.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(exposure,newNode, EXIF_EXPOSURE);
+                                append(startPoint, newNode);
+                        }
+                        if (FNumber.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(FNumber,newNode, EXIF_FNUMBER);
+                                append(startPoint, newNode);
+                        }
+                        if (ISR.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(ISR,newNode, EXIF_ISOSPEEDRATING);
+                                append(startPoint, newNode);
+                        }
+                        if (userComment.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(userComment,newNode, EXIF_USERCOMMENT);
+                                append(startPoint, newNode);
+                        }
+                        if (latitude.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(latitude,newNode, EXIF_GPSLATITUDE);
+                                append(startPoint, newNode);
+                        }
+                        if (latitudeRef.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(latitudeRef,newNode, EXIF_GPSLATITUDEREF);
+                                append(startPoint, newNode);
+                        }
+                        if (longitude.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(longitude,newNode, EXIF_GPSLONGITUDE);
+                                append(startPoint, newNode);
+                        }
+                        if (longitudeRef.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(longitudeRef,newNode, EXIF_GPSLONGITUDEREF);
+                                append(startPoint, newNode);
+                        }
+                        if (datetime.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(datetime,newNode, EXIF_DATETIME);
+                                append(startPoint, newNode);
+                        }
+                        if (imageDescription.data != NULL) {
+                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                fillExifInfoFromCli(imageDescription,newNode, EXIF_IMAGEDESCRIPTION);
+                                append(startPoint, newNode);
+                        }
+                        rebuildExif(startPoint);  
+                        continue;
+                }
+                fwrite(&currentByte,1,1,fp_out);
         }
         
         clearExifInfo(startPoint);
