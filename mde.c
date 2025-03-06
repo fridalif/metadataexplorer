@@ -1723,9 +1723,60 @@ u_int16_t countExifLen(ExifInfo* startNode) {
         return result;
 }
 
+u_int16_t countExifTags(ExifInfo* startNode) {
+        u_int16_t result = 0;
+        ExifInfo* next = startNode->next;
+        while (next!=NULL) {
+                result++;
+                next = next->next;
+        }
+        return result;
+}
+u_int16_t countBaseOffset(ExifInfo* startNode) {
+        u_int16_t result = 0;
+        ExifInfo* next = startNode->next;
+        while (next!=NULL) {
+                if (next->tagData->data==NULL) {
+                        continue;
+                }
+                //tag_id
+                result+=2;
+                //tag_format
+                result+=2;
+                //counter units
+                result+=4;
+                //offset
+                result+=4;
+                next = next->next;
+        }
+        return result;
+}
+
 void rebuildExif(ExifInfo* startNode, FILE* fp_out) {
-        u_int16_t exifLen = countExifLen(startNode);
+        //+4 - Exif, +2 - 00 00, +2 MM, +2 00 2a,+4 - IFD offset,+2 - Tags Count
+        u_int16_t exifLen = countExifLen(startNode)+4+2+2+2+4;
+        u_int16_t exifCount = countExifTags(startNode);
         unsigned char baseBytes[2] = {0xff, 0xe1};
+        unsigned char lenBytes[2] = {exifLen>>8 & 0xff, exifLen & 0xff};
+        unsigned char exifLetters[4] = {0x45,0x78,0x69,0x66};
+        unsigned char nullAndMMBytes[6] = {0x00, 0x00, 0x4d, 0x4d, 0x00, 0x2a};
+        unsigned char ifdOffset[4] = {0x00,0x00,0x00,0x08};
+        unsigned char exifCountBytes = {exifCount>>8 & 0xff, exifCount & 0xff};
+        u_int32_t currentOffset = 10;
+        fwrite(baseBytes,1,2,fp_out);
+        fwrite(lenBytes,1,2,fp_out);
+        fwrite(exifLetters,1,4,fp_out);
+        fwrite(nullAndMMBytes,1,6,fp_out);
+        fwrite(ifdOffset,1,4,fp_out);
+        fwrite(exifCountBytes,1,2,fp_out);
+        currentOffset += countBaseOffset(startNode);
+        ExifInfo* currentNode = startNode->next;
+        while (currentNode!=NULL) {
+                unsigned char tagTypeBytes[2];
+                tagTypeBytes[0] = (currentNode->tagType >> 8) & 0xFF;
+                tagTypeBytes[1] = currentNode->tagType & 0xFF;
+                fwrite(tagTypeBytes,1,2,fp_out);
+        }
 }
 
 int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
