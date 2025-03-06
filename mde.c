@@ -1761,7 +1761,7 @@ void rebuildExif(ExifInfo* startNode, FILE* fp_out) {
         unsigned char exifLetters[4] = {0x45,0x78,0x69,0x66};
         unsigned char nullAndMMBytes[6] = {0x00, 0x00, 0x4d, 0x4d, 0x00, 0x2a};
         unsigned char ifdOffset[4] = {0x00,0x00,0x00,0x08};
-        unsigned char exifCountBytes = {exifCount>>8 & 0xff, exifCount & 0xff};
+        unsigned char exifCountBytes[2] = {exifCount>>8 & 0xff, exifCount & 0xff};
         u_int32_t currentOffset = 10;
         fwrite(baseBytes,1,2,fp_out);
         fwrite(lenBytes,1,2,fp_out);
@@ -1809,6 +1809,7 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         if (!fp_in){
                 return -1;
         }
+        fseek(fp_in,0,SEEK_SET);
         CLIExifArgument make = constructorCLIExifArgument("--make");
         CLIExifArgument model = constructorCLIExifArgument("--model");
         CLIExifArgument exposure = constructorCLIExifArgument("--exposure");
@@ -1864,21 +1865,6 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename,"wb");
         while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
-                //JFIF version
-                if (currentByte == 0x4a && hasJFIFCLI != -1) {
-                        fwrite(&currentByte,1,1,fp_out);
-                        unsigned char bytesFIF[3];
-                        int result = fread(bytesFIF,1,3,fp_in);
-                        if (result!=3 || !fp_in || bytesFIF[0]!=0x46 || bytesFIF[1]!=0x49 || bytesFIF[2]!=0x46) {
-                                fseek(fp_in,-3,SEEK_CUR);
-                                continue;
-                        }
-                        fwrite(bytesFIF,1,3,fp_out);
-                        fwrite(jfifBuffer,1,4,fp_out);
-                        fseek(fp_in,4,SEEK_CUR);
-                        continue;
-                }
-                //Exif
                 if (currentByte == 0xff) {
                         unsigned char nextByte = 0x00;
                         int result = fread(&nextByte,1,1,fp_in);
@@ -1886,9 +1872,49 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                 fwrite(&currentByte,1,1,fp_out);
                                 continue;
                         }
-                        if (nextByte!=0xe1) {
+                        if (nextByte!=0xe1 && nextByte!=0xe0) {
                                 fwrite(&currentByte,1,1,fp_out);
                                 fseek(fp_in,-1,SEEK_CUR);
+                                continue;
+                        }
+                        if (nextByte == 0xe0) {
+                                unsigned char jfifBytes[4] = {0x00,0x00,0x00,0x00};
+                                unsigned char jfifLenBytes[2] = {0x00,0x00};
+                                result = fread(jfifLenBytes,1,2,fp_in);
+                                if (result!=2 || !fp_in) {
+                                        fseek(fp_in,-3,SEEK_CUR);
+                                        fwrite(&currentByte,1,1,fp_out);
+                                        continue;
+                                }
+                                u_int16_t jfifLen = (jfifLenBytes[0]<<8) | jfifLenBytes[1];
+                                fread(jfifBytes,1,4,fp_in);
+                                
+                                unsigned char versionBytes[2] = {0x00,0x00};
+                                if (hasJFIFCLI == -1) {
+                                        fread(versionBytes,1,2,fp_in);
+                                } else {
+                                        versionBytes[0] = jfifBuffer[0];
+                                        versionBytes[1] = jfifBuffer[1];
+                                }
+                                fwrite(&currentByte,1,1,fp_out);
+                                fwrite(&nextByte,1,1,fp_out);
+                                fwrite(jfifLenBytes,1,2,fp_out);
+                                fwrite(jfifBytes,1,4,fp_out);
+                                fwrite(versionBytes,1,2,fp_out);
+                                //-2 len, -2 vers, -4 JFIF
+                                for (int i=0;i<jfifLen-8;i++) {
+                                        fread(&currentByte,1,1,fp_in);
+                                        fwrite(&currentByte,1,1,fp_out);
+                                }
+                                if (header!=NULL && data!=NULL) {
+                                        u_int16_t dataLen = strlen(header)+ strlen(data)+2;
+                                        unsigned char tag[2] = {0xff, 0xfe};
+                                        fwrite(tag,1,2,fp_out);
+                                        unsigned char lenBytes[2] = {dataLen>>8 & 0xff, dataLen & 0xff};
+                                        fwrite(lenBytes,1,2,fp_out);
+                                        fwrite(header,1,strlen(header),fp_out);
+                                        fwrite(data, 1, strlen(data),fp_out);
+                                }
                                 continue;
                         }
                         unsigned char exifLenBytes[2];
@@ -1962,15 +1988,7 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                 append(startPoint, newNode);
                         }
                         rebuildExif(startPoint, fp_out); 
-                        if (header!=NULL && data!=NULL) {
-                                u_int16_t length = strlen(header)+strlen(data)+2;
-                                unsigned char comBytes[2] = {0xff, 0xfe};
-                                fwrite(comBytes,1,2,fp_out);
-                                unsigned char lengthBytes[2] = {length>>8 & 0xff,length & 0xff};
-                                fwrite(lengthBytes,1,2,fp_out);
-                                fwrite(header, 1, strlen(header),fp_out);
-                                fwrite(data, 1, strlen(data),fp_out);
-                        } 
+                        
                         continue;
                 }
                 fwrite(&currentByte,1,1,fp_out);
@@ -2313,6 +2331,8 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
         fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
+        } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
+                int result = addMetadataJPEG(fp_in,header,data, filename,argc,argv);
         } else {
                 printf("Неподдерживаемый формат файла\n");
                 fclose(fp_in);
