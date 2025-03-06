@@ -1753,8 +1753,8 @@ u_int16_t countBaseOffset(ExifInfo* startNode) {
 }
 
 void rebuildExif(ExifInfo* startNode, FILE* fp_out) {
-        //+4 - Exif, +2 - 00 00, +2 MM, +2 00 2a,+4 - IFD offset,+2 - Tags Count
-        u_int16_t exifLen = countExifLen(startNode)+4+2+2+2+4;
+        //+4 - Exif, +2 - 00 00, +2 MM, +2 00 2a,+4 - IFD offset,+2 - Tags Count, +2 len?
+        u_int16_t exifLen = countExifLen(startNode)+4+2+2+2+4+2;
         u_int16_t exifCount = countExifTags(startNode);
         unsigned char baseBytes[2] = {0xff, 0xe1};
         unsigned char lenBytes[2] = {exifLen>>8 & 0xff, exifLen & 0xff};
@@ -1961,7 +1961,16 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                 fillExifInfoFromCli(imageDescription,newNode, EXIF_IMAGEDESCRIPTION);
                                 append(startPoint, newNode);
                         }
-                        rebuildExif(startPoint, fp_out);  
+                        rebuildExif(startPoint, fp_out); 
+                        if (header!=NULL && data!=NULL) {
+                                u_int16_t length = strlen(header)+strlen(data)+2;
+                                unsigned char comBytes[2] = {0xff, 0xfe};
+                                fwrite(comBytes,1,2,fp_out);
+                                unsigned char lengthBytes[2] = {length>>8 & 0xff,length & 0xff};
+                                fwrite(lengthBytes,1,2,fp_out);
+                                fwrite(header, 1, strlen(header),fp_out);
+                                fwrite(data, 1, strlen(data),fp_out);
+                        } 
                         continue;
                 }
                 fwrite(&currentByte,1,1,fp_out);
