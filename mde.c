@@ -604,6 +604,7 @@ int parseExifField(FILE* fp_in, ExifData* tagData ,long startTIFF, u_int16_t blo
 
 int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
         long tiffStart = ftell(fp_in);
+        printf("%ld\n",tiffStart);
         unsigned char currentBytes[2];
         u_int32_t result = 0;
         for (long counter = 0; counter < (long)length; counter++) {
@@ -734,6 +735,7 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
                         continue;
                 }
                 counter+=parseRes;
+                printf("%s",tagInfo->tagData->data);
                 append(startPoint, tagInfo);
         }
         return 1;
@@ -1792,6 +1794,8 @@ void rebuildExif(ExifInfo* startNode, FILE* fp_out) {
                         dataBytes[3] = currentOffset * 0xff;
                         currentOffset+=currentNode->tagData->dataLen;
                 }
+                printf("%d",currentOffset);
+                printf("%s\n",currentNode->tagData->data);
                 fwrite(dataBytes,1,4,fp_out);
                 currentNode = currentNode->next;
         }
@@ -1925,7 +1929,7 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                 continue;
                         }
                         u_int16_t exifLen = (exifLenBytes[0]<<8)|exifLenBytes[1];
-                        fseek(fp_in,2,SEEK_CUR);
+                        fseek(fp_in,6,SEEK_CUR);
                         parseJPEGAPPTag(fp_in,startPoint, exifLen-4-2);
                         if (make.data!=NULL) {
                                 ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
