@@ -1776,6 +1776,32 @@ void rebuildExif(ExifInfo* startNode, FILE* fp_out) {
                 tagTypeBytes[0] = (currentNode->tagType >> 8) & 0xFF;
                 tagTypeBytes[1] = currentNode->tagType & 0xFF;
                 fwrite(tagTypeBytes,1,2,fp_out);
+                unsigned char tagFormatBytes[2] = {0x00, currentNode->tagData->format & 0xff};
+                fwrite(tagFormatBytes,1,2,fp_out);
+                unsigned char counterBytes[4] = {currentNode->tagData->counter >> 24 & 0xff, currentNode->tagData->counter >> 16 & 0xff, currentNode->tagData->counter >> 8 & 0xff, currentNode->tagData->counter & 0xff};
+                fwrite(counterBytes,1,4,fp_out);
+                unsigned char dataBytes[4] = {0x00,0x00,0x00,0x00};
+                if (currentNode->tagData->dataLen <=4 ) {
+                        for (int i = currentNode->tagData->dataLen-1; i >= 0; i--) {
+                                dataBytes[4-currentNode->tagData->dataLen+i] = currentNode->tagData->data[i];
+                        }
+                } else {
+                        dataBytes[0] = currentOffset>>24 & 0xff;
+                        dataBytes[1] = currentOffset>>16 & 0xff;
+                        dataBytes[2] = currentOffset>>8 & 0xff;
+                        dataBytes[3] = currentOffset * 0xff;
+                        currentOffset+=currentNode->tagData->dataLen;
+                }
+                fwrite(dataBytes,1,4,fp_out);
+                currentNode = currentNode->next;
+        }
+        currentNode = startNode->next;
+        while (currentNode!=NULL) {
+                if (currentNode->tagData->dataLen<=4) {
+                        continue;
+                }
+                fwrite(currentNode->tagData->data,1,currentNode->tagData->dataLen,fp_out);
+                currentNode = currentNode->next;
         }
 }
 
