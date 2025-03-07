@@ -72,20 +72,19 @@ int append(ExifInfo* start, ExifInfo* appendingItem) {
     return 1;
 }
 void clearExifData(ExifData* tagData) {
-    if (tagData != NULL) {
-        if (tagData->data != NULL) {
-            free(tagData->data); 
-            tagData->data = NULL;
+        if (tagData != NULL) {
+                if (tagData->data != NULL) {
+                        free(tagData->data); 
+                        tagData->data = NULL;
+                }
+                free(tagData);
         }
-        free(tagData);
-    }
 }
 
 void clearExifInfo(ExifInfo* info) {
         if (info == NULL) {
             return;
         }
-        
         if (info->next != NULL) {
             clearExifInfo(info->next);
         }
@@ -604,7 +603,6 @@ int parseExifField(FILE* fp_in, ExifData* tagData ,long startTIFF, u_int16_t blo
 
 int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
         long tiffStart = ftell(fp_in);
-        printf("%ld\n",tiffStart);
         unsigned char currentBytes[2];
         u_int32_t result = 0;
         for (long counter = 0; counter < (long)length; counter++) {
@@ -735,7 +733,6 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
                         continue;
                 }
                 counter+=parseRes;
-                printf("%s",tagInfo->tagData->data);
                 append(startPoint, tagInfo);
         }
         return 1;
@@ -1213,7 +1210,10 @@ int getExifArgumentFromCLI(CLIExifArgument* argument, int argc, char** argv) {
                         if (dataType<=0 || dataType>12) {
                                 continue;
                         }
-                        argument->data = argv[i+1];
+                        unsigned char* dynamicData = (unsigned char*)malloc((u_int32_t)strlen(argv[i+1])+1);
+                        memcpy(dynamicData,argv[i+1],(u_int32_t)strlen(argv[i+1]));
+                        dynamicData[strlen(argv[i+1])] = '\0';
+                        argument->data = dynamicData;
                         argument->format = (ExifFormats)((unsigned char)dataType);
                         return 1;
                 }
@@ -1537,6 +1537,7 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
         int realCounter = 0;
         unsigned char* dataArray = NULL;
         ExifData* newData = (ExifData*)malloc(sizeof(ExifData));
+        newData->data = NULL;
         switch (argument.format) {
                 case EXIF_BYTE:
                         newData->data = argument.data;
@@ -1552,10 +1553,11 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         u_int16_t* elementsArrayUI16 = (u_int16_t*)malloc(count*2);
                         realCounter = parseShortCLI(argument.data,elementsArrayUI16);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*2); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[2*i] = elementsArrayUI16[i]>>8 && 0xff;
-                                dataArray[2*i+1] = elementsArrayUI16[i] && 0xff;
+                                dataArray[2*i] = elementsArrayUI16[i]>>8 & 0xff;
+                                dataArray[2*i+1] = elementsArrayUI16[i] & 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter;
@@ -1567,12 +1569,13 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         u_int32_t* elementsArrayUI32 = (u_int32_t*)malloc(count*4);
                         realCounter = parseLongCLI(argument.data,elementsArrayUI32);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*4); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[4*i] = elementsArrayUI32[i]>>24 && 0xff;
-                                dataArray[4*i+1] = elementsArrayUI32[i]>>16 && 0xff;
-                                dataArray[4*i+2] = elementsArrayUI32[i]>>8 && 0xff;
-                                dataArray[4*i+3] = elementsArrayUI32[i] && 0xff;
+                                dataArray[4*i] = elementsArrayUI32[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArrayUI32[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArrayUI32[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArrayUI32[i] & 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter;
@@ -1584,12 +1587,13 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         u_int32_t* elementsArrayRAT = (u_int32_t*)malloc(count*8);
                         realCounter = parseRationalCLI(argument.data,elementsArrayRAT);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*4); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[4*i] = elementsArrayRAT[i]>>24 && 0xff;
-                                dataArray[4*i+1] = elementsArrayRAT[i]>>16 && 0xff;
-                                dataArray[4*i+2] = elementsArrayRAT[i]>>8 && 0xff;
-                                dataArray[4*i+3] = elementsArrayRAT[i] && 0xff;
+                                dataArray[4*i] = elementsArrayRAT[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArrayRAT[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArrayRAT[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArrayRAT[i] & 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter/2;
@@ -1610,10 +1614,11 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         int16_t* elementsArrayI16 = (int16_t*)malloc(count*2);
                         realCounter = parseSShortCLI(argument.data,elementsArrayI16);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*2); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[2*i] = elementsArrayI16[i]>>8 && 0xff;
-                                dataArray[2*i+1] = elementsArrayI16[i] && 0xff;
+                                dataArray[2*i] = elementsArrayI16[i]>>8 & 0xff;
+                                dataArray[2*i+1] = elementsArrayI16[i] & 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter;
@@ -1625,12 +1630,13 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         int32_t* elementsArrayI32 = (int32_t*)malloc(count*4);
                         realCounter = parseSLongCLI(argument.data,elementsArrayI32);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*4); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[4*i] = elementsArrayI32[i]>>24 && 0xff;
-                                dataArray[4*i+1] = elementsArrayI32[i]>>16 && 0xff;
-                                dataArray[4*i+2] = elementsArrayI32[i]>>8 && 0xff;
-                                dataArray[4*i+3] = elementsArrayI32[i] && 0xff;
+                                dataArray[4*i] = elementsArrayI32[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArrayI32[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArrayI32[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArrayI32[i] & 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter;
@@ -1642,12 +1648,13 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         int32_t* elementsArraySRAT = (int32_t*)malloc(count*8);
                         realCounter = parseSRationalCLI(argument.data,elementsArraySRAT);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*4); 
                         for (int i = 0; i < realCounter; i++) {
-                                dataArray[4*i] = elementsArraySRAT[i]>>24 && 0xff;
-                                dataArray[4*i+1] = elementsArraySRAT[i]>>16 && 0xff;
-                                dataArray[4*i+2] = elementsArraySRAT[i]>>8 && 0xff;
-                                dataArray[4*i+3] = elementsArraySRAT[i] && 0xff;
+                                dataArray[4*i] = elementsArraySRAT[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArraySRAT[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArraySRAT[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArraySRAT[i] & 0xff;
                         }
                         newData->data = dataArray;
                         newData->counter = realCounter/2;
@@ -1659,6 +1666,7 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         float* elementsArrayFloat = (float*)malloc(count*4);
                         realCounter = parseFloatCLI(argument.data,elementsArrayFloat);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*4); 
                         for (int i = 0; i < realCounter; i++) {
                                 u_int8_t bytes[sizeof(float)]; 
@@ -1678,6 +1686,7 @@ void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags t
                         count = argumentsCount(argument.data);
                         double* elementsArrayDouble = (double*)malloc(count*8);
                         realCounter = parseDoubleCLI(argument.data,elementsArrayDouble);
+                        free(argument.data);
                         dataArray = (unsigned char*)malloc(realCounter*8); 
                         for (int i = 0; i < realCounter; i++) {
                                 u_int8_t bytes[sizeof(double)]; 
@@ -1791,17 +1800,16 @@ void rebuildExif(ExifInfo* startNode, FILE* fp_out) {
                         dataBytes[0] = currentOffset>>24 & 0xff;
                         dataBytes[1] = currentOffset>>16 & 0xff;
                         dataBytes[2] = currentOffset>>8 & 0xff;
-                        dataBytes[3] = currentOffset * 0xff;
+                        dataBytes[3] = currentOffset & 0xff;
                         currentOffset+=currentNode->tagData->dataLen;
                 }
-                printf("%d",currentOffset);
-                printf("%s\n",currentNode->tagData->data);
                 fwrite(dataBytes,1,4,fp_out);
                 currentNode = currentNode->next;
         }
         currentNode = startNode->next;
         while (currentNode!=NULL) {
                 if (currentNode->tagData->dataLen<=4) {
+                        currentNode = currentNode->next;
                         continue;
                 }
                 fwrite(currentNode->tagData->data,1,currentNode->tagData->dataLen,fp_out);
@@ -1868,6 +1876,7 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         printf("Изменение исходного файла: %s\n", filename);
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename,"wb");
+        free(new_filename);
         while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
                 if (currentByte == 0xff) {
                         unsigned char nextByte = 0x00;
@@ -1997,7 +2006,6 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                 }
                 fwrite(&currentByte,1,1,fp_out);
         }
-        
         clearExifInfo(startPoint);
         return 0;
 }
