@@ -73,12 +73,61 @@ int writeHelpMessage(char* execName) {
         printf("\t--vertical <Число> - Вертикальное разрешение(только в режиме --add и --update)\n");
         printf("\t--measure {0,1} - Единица измерения разрешения, 0 - соотношение сторон, 1 - метры(только в режиме --add и --update)\n");
         printf("\nJPEG\n");
-        printf("\tВ разработке\n");
+        printf("\t--jfifVersion <Число> - Версия JFIF\n");
+        printf("\t--initNewExif - Добавить новый exif блок(только для --add)\n");
+        printf("\t--make \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Фирма камеры (только для --add и --update)\n");
+        printf("\t--make - Фирма камеры (только для --delete)\n");
+        printf("\t--model \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Модель камеры (только для --add и --update)\n");
+        printf("\t--model - Модель камеры (только для --delete)\n");
+        printf("\t--exposure \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Время экспозиции (только для --add и --update)\n");
+        printf("\t--exposure - Время экспозиции (только для --delete)\n");
+        printf("\t--fnumber \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Апертура (только для --add и --update)\n");
+        printf("\t--fnumber - Апертура (только для --delete)\n");
+        printf("\t--lat <\"Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Широта (только для --add и --update)\n");
+        printf("\t--lat - Широта (только для --delete)\n");
+        printf("\t--lon \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Долгота (только для --add и --update)\n");
+        printf("\t--lon - Долгота (только для --delete)\n");
+        printf("\t--latRef \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Направление широты (обычно буквы N(North) или S(South)) (только для --add и --update)\n");
+        printf("\t--latRef - Направление широты (только для --delete)\n");
+        printf("\t--lonRef\" <Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Направление долготы (обычно буквы E(East) или W(West))(только для --add и --update)\n");
+        printf("\t--lonRef - Направление долготы (только для --delete)\n");
+        printf("\t--dt \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Дата и время (только для --add и --update)\n");
+        printf("\t--dt - Дата и время (только для --delete)\n");
+        printf("\t--imageDescription \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Описание изображения (только для --add и --update)\n");
+        printf("\t--imageDescription - Описание изображения (только для --delete)\n");
+        printf("\tИдентификаторы типов:\n");
+        printf("\t\t1 - Байт\n");
+        printf("\t\t2 - ASCII строка\n");
+        printf("\t\t3 - 2-х байтовое беззнаковое число\n");
+        printf("\t\t4 - 4-х байтовое беззнаковое число\n");
+        printf("\t\t5 - Беззнаковое рациональное число (значение записывается как <Число>/<Число>)\n");
+        printf("\t\t6 - Знаковый байт\n");
+        printf("\t\t7 - Неизвестный тип(интерпретируется как строка)\n");
+        printf("\t\t8 - 2-х байтовое знаковое число\n");
+        printf("\t\t9 - 4-х байтовое беззнаковое число\n");
+        printf("\t\t10 - Знаковое рациональное число (значение записывается как <Число>/<Число>)\n");
+        printf("\t\t11 - Float (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
+        printf("\t\t12 - Double (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
+
         printf("\nGIF\n");
         printf("\tВ разработке\n");
         printf("\nTIF\n");
         printf("\tВ разработке\n");
         return 1;
+        /*
+                int make = foundExifTagInCLI(argc,argv,"--make");
+        int model = foundExifTagInCLI(argc,argv,"--model");
+        int exposure = foundExifTagInCLI(argc,argv,"--exposure");
+        int FNumber = foundExifTagInCLI(argc,argv,"--fnumber");
+        int ISR = foundExifTagInCLI(argc,argv,"--isr");
+        int userComment = foundExifTagInCLI(argc,argv,"--usercomment");
+        int latitude = foundExifTagInCLI(argc,argv,"--lat");
+        int longitude = foundExifTagInCLI(argc,argv,"--lon");
+        int latitudeRef = foundExifTagInCLI(argc,argv,"--latRef");
+        int longitudeRef = foundExifTagInCLI(argc,argv,"--lonRef");
+        int datetime = foundExifTagInCLI(argc,argv,"--dt");
+        int imageDescription = foundExifTagInCLI(argc,argv,"--imageDescription");
+        */
 }
 
 
@@ -1466,7 +1515,13 @@ int readMetadataJPEG(FILE* fp_in) {
                         unsigned char* comment = (unsigned char*)malloc(length+1);
                         fread(comment,1,length,fp_in);
                         comment[length] = '\0';
-                        printf("Найден комментарий: %s\n",comment);
+                        printf("Найден комментарий: ");
+                        for (int i = 0; i< length; i++) {
+                                if (comment[i] == '\0') {
+                                        continue;
+                                }
+                                printf("%c",comment[i]);
+                        }
                         if (comment!=NULL) {
                                 free(comment);
                                 comment = NULL;
