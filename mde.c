@@ -2030,6 +2030,14 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         getExifArgumentFromCLI(&longitudeRef, argc, argv);
         getExifArgumentFromCLI(&datetime, argc, argv);
         getExifArgumentFromCLI(&imageDescription, argc, argv);
+        int alreadyAdded = -1;
+        int initNewExif = -1;
+        for (int i = 0; i < argc; i++) {
+                if (strcmp(argv[i],"--initNewExif") == 0) {
+                        initNewExif = 1;
+                        break;
+                }
+        }
         ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
         startPoint->next = NULL;
         startPoint->prev = NULL;
@@ -2114,6 +2122,75 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                         fwrite(&nullByte,1,1,fp_out);
                                         fwrite(data, 1, strlen(data),fp_out);
                                 }
+                                if (initNewExif == 1) {
+                                        if (make.data!=NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(make,newNode, EXIF_MAKE);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (model.data!=NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(model,newNode, EXIF_MODEL);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (exposure.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(exposure,newNode, EXIF_EXPOSURE);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (FNumber.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(FNumber,newNode, EXIF_FNUMBER);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (ISR.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(ISR,newNode, EXIF_ISOSPEEDRATING);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (userComment.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(userComment,newNode, EXIF_USERCOMMENT);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (latitude.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(latitude,newNode, EXIF_GPSLATITUDE);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (latitudeRef.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(latitudeRef,newNode, EXIF_GPSLATITUDEREF);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (longitude.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(longitude,newNode, EXIF_GPSLONGITUDE);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (longitudeRef.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(longitudeRef,newNode, EXIF_GPSLONGITUDEREF);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (datetime.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(datetime,newNode, EXIF_DATETIME);
+                                                append(startPoint, newNode);
+                                        }
+                                        if (imageDescription.data != NULL) {
+                                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
+                                                fillExifInfoFromCli(imageDescription,newNode, EXIF_IMAGEDESCRIPTION);
+                                                append(startPoint, newNode);
+                                        }
+                                        rebuildExif(startPoint, fp_out);
+                                        alreadyAdded = 1; 
+                                }
+                                continue;
+                        }
+                        if (alreadyAdded == 1) {
+                                fwrite(&currentByte,1,1,fp_out);
+                                fwrite(&nextByte,1,1,fp_out);
                                 continue;
                         }
                         unsigned char exifLenBytes[2];
@@ -2187,7 +2264,7 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                 append(startPoint, newNode);
                         }
                         rebuildExif(startPoint, fp_out); 
-                        
+                        alreadyAdded = 1;
                         continue;
                 }
                 fwrite(&currentByte,1,1,fp_out);
