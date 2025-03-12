@@ -82,6 +82,7 @@ struct TIFFInfo {
         TIFFTags tagType;
         unsigned char* data;
         u_int32_t structuresCount;
+        u_int16_t ifdNumber;
 };
 
 struct ExifInfo{
@@ -92,6 +93,37 @@ struct ExifInfo{
         ExifTags tagType;
         ExifData* tagData;
 };
+
+TIFFInfo* initTiffInfo() {
+        TIFFInfo* tiffInfo = (TIFFInfo*)malloc(sizeof(TIFFInfo));
+        tiffInfo->data = NULL;
+        tiffInfo->next = NULL;
+        tiffInfo->format = NULL;
+        tiffInfo->tagType = NULL;
+        tiffInfo->structuresCount = NULL;
+        return tiffInfo;
+}
+
+void appendTiff(TIFFInfo* start, TIFFInfo* node) {
+        TIFFInfo* temp = start;
+        while(temp->next!=NULL) {
+                temp = temp->next;
+        }
+        temp->next = node;
+}
+
+void clearTIFFInfo(TIFFInfo* start) {
+        TIFFInfo* temp = start;
+        while(temp!=NULL) {
+                TIFFInfo* nextNode = temp->next;
+                if (temp->data!=NULL) {
+                        free(temp->data);
+                }
+                free(temp);
+                temp = nextNode;
+        }
+}
+
 
 int writeHelpMessage(char* execName) {
 	printf("Использование: %s {--update, --add, --delete, --read, --help} [{Опции}]\n", execName);
@@ -1475,7 +1507,17 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
 }
 
 int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
-
+        if (!fp_in) {
+                printf("Ошибка: не удалось считать из файла\n");
+                return 1;
+        }
+        TIFFInfo* start = initTiffInfo();
+        unsigned char nextIFDOffsetBytes[4] = {0x00, 0x00, 0x00, 0x00};
+        while (fread(nextIFDOffsetBytes,1,4,fp_in) == 4) {
+                
+        }
+        
+        clearTIFFInfo(start);
 }
 
 
