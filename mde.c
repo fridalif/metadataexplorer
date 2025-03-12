@@ -23,6 +23,33 @@ typedef enum {
 } ExifFormats;
 
 typedef enum {
+        TIFF_IMAGE_WIDTH = (0x01<<8)|0x00,
+        TIFF_IMAGE_LENGTH = (0x01<<8)|0x01,
+        TIFF_BITS_PER_SAMPLE = (0x01<<8)|0x02,
+        TIFF_COMPRESSION = (0x01<<8)|0x03,
+        TIFF_PHOTOMETRIC_INETRPRETATION = (0x01<<8)|0x06,
+        TIFF_SAMPLES_PER_PIXEL = (0x01<<8)|0x15,
+        TIFF_ROWS_PER_STRIP = (0x01<<8)|0x16,
+        TIFF_STRIP_BYTE_COUNT = (0x01<<8)|0x17,
+        TIFF_XRESOLUTION = (0x01<<8)|0x1A,
+        TIFF_YRESOLUTION = (0x01<<8)|0x1B,
+        TIFF_RESOLUTION_UNIT = (0x01<<8)|0x28,
+        TIFF_MAKE = (0x01<<8)|0x0F,
+        TIFF_MODEL = (0x01<<8)|0x10,
+        TIFF_EXPOSURETIME = (0x82<<8)|0x9A,
+        TIFF_FNUMBER = (0x82<<8)|(0x9D),
+        TIFF_ISOSPEEDRATING = (0x88<<8)|0x27,
+        TIFF_USERCOMENT = (0x92<<8)|0x86,
+        TIFF_LATITUDEREF = (0x00<<8)|(0x01),
+        TIFF_LATITUDE = (0x00<<8)|(0x02),
+        TIFF_LONGITUDEREF = (0x00<<8)|(0x03),
+        TIFF_LONGITUDE = (0x00<<8)|(0x04),
+        TIFF_DATETIME = (0x01<<8)|0x32,
+        TIFF_IMAGEDESCRIPTION = (0x01)|0x0e
+} TIFFTags;
+
+
+typedef enum {
         EXIF_MAKE = (0x01<<8) | 0x0f,
         EXIF_MODEL = (0x01<<8) | 0x10,
         EXIF_EXPOSURE = (0x82<<8) | 0x9a,
@@ -46,6 +73,16 @@ typedef struct {
 } ExifData;
 
 typedef struct ExifInfo ExifInfo;
+
+typedef struct TIFFInfo TIFFInfo;
+
+struct TIFFInfo {
+        TIFFInfo* next;
+        ExifFormats format;
+        TIFFTags tagType;
+        unsigned char* data;
+        u_int32_t structuresCount;
+};
 
 struct ExifInfo{
         ExifInfo* prev;
@@ -111,7 +148,7 @@ int writeHelpMessage(char* execName) {
 
         printf("\nGIF\n");
         printf("\tВ разработке\n");
-        printf("\nTIF\n");
+        printf("\nTIFF\n");
         printf("\tВ разработке\n");
         return 1;
         /*
@@ -1437,6 +1474,11 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
         return 1;
 }
 
+int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
+
+}
+
+
 int readMetadataJPEG(FILE* fp_in) {
         unsigned char currentByte = 0x00;
         if (!fp_in) {
@@ -1626,6 +1668,20 @@ int readMetadata(char* filename, int argc, char** argv){
         printf("Тип файла: JPEG \n");
         printf("MIME Тип: image/jpeg\n");
         readMetadataJPEG(fp_in);
+    } else if (headerBytes[0] == 0x49 && headerBytes[1] == 0x49 && headerBytes[2] == 0x2a && headerBytes[3] == 0x00) {
+        printf("\nВнутренние данные файла\n");
+        printf("-----------------------\n");
+        printf("Тип файла: TIFF \n");
+        printf("MIME Тип: image/tiff\n");
+        printf("Байтовый порядок: Little-endian\n");
+        readMetadataTIFF(fp_in, 1);
+    } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
+        printf("\nВнутренние данные файла\n");
+        printf("-----------------------\n");
+        printf("Тип файла: TIFF \n");
+        printf("MIME Тип: image/tiff\n");
+        printf("Байтовый порядок: Big-endian\n");
+        readMetadataTIFF(fp_in, 0);
     } else {
         printf("Неподдерживаемый формат файла\n");
         fclose(fp_in);
