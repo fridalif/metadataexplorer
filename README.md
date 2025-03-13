@@ -1,5 +1,15 @@
 # Metadata Explorer v0.2.0
+```
+@@@@@@@@@   XXX        XXX  XXXXX    XXXXXXX                 
+@       @   XXXX      XXXX  XXXXXX   XXXXXXX     \__│__│___/ 
+@  @@@  @   XX XX    XX XX  XX   XX  XX          /   ...   \ 
+@       @   XX  XX   XX XX  XX    XX XXXXX      /   . . .   \
+@  @@@  @   XX  XX  XX  XX  XX   XX  XX         \    ...    /
+@       @   XX    XX    XX  XXXXXX   XXXXXXX     \_________/ 
+@@@@@@@@@   XX    XX    XX  XXXXX    XXXXXXX                 
+```
 Использование: ./mde {--update, --add, --delete, --read, --help} \[{Опции}\]
+
 Опции: 
 - --filename <имя_файла> - Название файла с которым будет проводиться работа 
 - {--atime, --ctime, --mtime} ГГГГ-ММ-ДД ЧЧ:мм:сс - Изменение системных меток(если нет флага оставляет прошлые)-H

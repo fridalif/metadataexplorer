@@ -98,9 +98,9 @@ TIFFInfo* initTiffInfo() {
         TIFFInfo* tiffInfo = (TIFFInfo*)malloc(sizeof(TIFFInfo));
         tiffInfo->data = NULL;
         tiffInfo->next = NULL;
-        tiffInfo->format = NULL;
-        tiffInfo->tagType = NULL;
-        tiffInfo->structuresCount = NULL;
+        tiffInfo->format = 0;
+        tiffInfo->tagType = 0;
+        tiffInfo->structuresCount = 0;
         return tiffInfo;
 }
 
@@ -3463,6 +3463,14 @@ char* getData(int argc, char** argv) {
 
 
 int main(int argc, char** argv) {
+        printf("@@@@@@@@@   XXX        XXX  XXXXX    XXXXXXX                 \n");
+        printf("@       @   XXXX      XXXX  XXXXXX   XXXXXXX     \\__│__│___/ \n");
+        printf("@  @@@  @   XX XX    XX XX  XX   XX  XX          /   ...   \\ \n");
+        printf("@       @   XX  XX   XX XX  XX    XX XXXXX      /   . . .   \\\n");
+        printf("@  @@@  @   XX  XX  XX  XX  XX   XX  XX         \\    ...    /\n");
+        printf("@       @   XX    XX    XX  XXXXXX   XXXXXXX     \\_________/ \n");
+        printf("@@@@@@@@@   XX    XX    XX  XXXXX    XXXXXXX                 \n\n");
+
 	if (argc < 3 ){
 		writeHelpMessage(argv[0]);
 		return 0;
