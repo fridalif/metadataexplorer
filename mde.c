@@ -1514,6 +1514,11 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
         TIFFInfo* start = initTiffInfo();
         unsigned char nextIFDOffsetBytes[4] = {0x00, 0x00, 0x00, 0x00};
         while (fread(nextIFDOffsetBytes,1,4,fp_in) == 4) {
+                u_int32_t nextIFDOffset = (nextIFDOffsetBytes[0]<<24)|(nextIFDOffsetBytes[1]<<16)|(nextIFDOffsetBytes[2]<<8)|nextIFDOffsetBytes[3];
+                if (isLittleEndian == 1) {
+                        nextIFDOffset = (nextIFDOffsetBytes[3]<<24)|(nextIFDOffsetBytes[2]<<16)|(nextIFDOffsetBytes[1]<<8)|nextIFDOffsetBytes[0];
+                }
+                fseek(fp_in,nextIFDOffset,SEEK_CUR);
                 
         }
         
@@ -1742,7 +1747,10 @@ int readMetadata(char* filename, int argc, char** argv){
     strptime(ctimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_ctime);
     strptime(mtimeBufferInput, "%Y-%m-%d %H:%M:%S", &tm_mtime);
 
-
+    new_times[0].tv_sec = mktime(&tm_atime);
+    new_times[0].tv_nsec = 0;
+    new_times[1].tv_sec = mktime(&tm_mtime);
+    new_times[1].tv_nsec = 0;
     struct timespec new_system_time;
     new_system_time.tv_sec = mktime(&tm_ctime);
     new_system_time.tv_nsec = 0;
@@ -1750,16 +1758,12 @@ int readMetadata(char* filename, int argc, char** argv){
         perror("\nОшибка при установке системного времени\n");
         return 1;
     }
-    
-    new_times[0].tv_sec = mktime(&tm_atime); 
-    new_times[1].tv_sec = mktime(&tm_mtime);  
-    
+     
     if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
         printf("\nОшибка при изменении временных меток файла\n");
-        return 1;
+    } else {
+        printf("\nВременные метки файла успешно изменены.\n");
     }
-    printf("\nВременные метки файла успешно изменены.\n");
-    
     if (clock_settime(CLOCK_REALTIME, &current_time)) {
         perror("Ошибка при восстановлении системного времени");
         return 1;
@@ -2131,15 +2135,17 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
             return 1;
         }
         
-        new_times[0].tv_sec = mktime(&tm_atime); 
-        new_times[1].tv_sec = mktime(&tm_mtime);  
+        new_times[0].tv_sec = mktime(&tm_atime);
+        new_times[0].tv_nsec = 0;
+        new_times[1].tv_sec = mktime(&tm_mtime);
+        new_times[1].tv_nsec = 0;
         
         if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
             printf("\nОшибка при изменении временных меток файла\n");
-            return 1;
+            
+        } else {
+            printf("\nВременные метки файла успешно изменены.\n");
         }
-        printf("\nВременные метки файла успешно изменены.\n");
-        
         if (clock_settime(CLOCK_REALTIME, &current_time)) {
             perror("Ошибка при восстановлении системного времени");
             return 1;
@@ -2786,15 +2792,16 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
             return 1;
         }
         
-        new_times[0].tv_sec = mktime(&tm_atime); 
-        new_times[1].tv_sec = mktime(&tm_mtime);  
+        new_times[0].tv_sec = mktime(&tm_atime);
+        new_times[0].tv_nsec = 0;
+        new_times[1].tv_sec = mktime(&tm_mtime);
+        new_times[1].tv_nsec = 0; 
         
         if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
             printf("\nОшибка при изменении временных меток файла\n");
-            return 1;
+        } else {
+            printf("\nВременные метки файла успешно изменены.\n");
         }
-        printf("\nВременные метки файла успешно изменены.\n");
-        
         if (clock_settime(CLOCK_REALTIME, &current_time)) {
             perror("Ошибка при восстановлении системного времени");
             return 1;
@@ -3396,15 +3403,16 @@ int updateMetadata(char* filename, char* header, char* data, int argc, char** ar
             return 1;
         }
         
-        new_times[0].tv_sec = mktime(&tm_atime); 
-        new_times[1].tv_sec = mktime(&tm_mtime);  
+        new_times[0].tv_sec = mktime(&tm_atime);
+        new_times[0].tv_nsec = 0;
+        new_times[1].tv_sec = mktime(&tm_mtime);
+        new_times[1].tv_nsec = 0; 
         
         if (utimensat(AT_FDCWD, filename, new_times, 0) == -1) {
             printf("\nОшибка при изменении временных меток файла\n");
-            return 1;
+        } else {
+            printf("\nВременные метки файла успешно изменены.\n");
         }
-        printf("\nВременные метки файла успешно изменены.\n");
-        
         if (clock_settime(CLOCK_REALTIME, &current_time)) {
             perror("Ошибка при восстановлении системного времени");
             return 1;
@@ -3463,13 +3471,15 @@ char* getData(int argc, char** argv) {
 
 
 int main(int argc, char** argv) {
-        printf("@@@@@@@@@   XXX        XXX  XXXXX    XXXXXXX                 \n");
-        printf("@       @   XXXX      XXXX  XXXXXX   XXXXXXX     \\__│__│___/ \n");
-        printf("@  @@@  @   XX XX    XX XX  XX   XX  XX          /   ...   \\ \n");
-        printf("@       @   XX  XX   XX XX  XX    XX XXXXX      /   . . .   \\\n");
-        printf("@  @@@  @   XX  XX  XX  XX  XX   XX  XX         \\    ...    /\n");
-        printf("@       @   XX    XX    XX  XXXXXX   XXXXXXX     \\_________/ \n");
-        printf("@@@@@@@@@   XX    XX    XX  XXXXX    XXXXXXX                 \n\n");
+        printf("--------------------------------------------------------------------------------------------\n");
+        printf("\t\t@@@@@@@@@   XXX        XXX  XXXXX    XXXXXXX                 \n");
+        printf("\t\t@       @   XXXX      XXXX  XXXXXX   XXXXXXX     \\__│__│___/ \n");
+        printf("\t\t@  @@@  @   XXXXX    XXXXX  XX   XX  XX          /   ...   \\ \n");
+        printf("\t\t@       @   XX XXX   XX XX  XX    XX XXXXX      /   . . .   \\\n");
+        printf("\t\t@  @@@  @   XX  XX  XX  XX  XX   XX  XX         \\    ...    /\n");
+        printf("\t\t@       @   XX    XX    XX  XXXXXX   XXXXXXX     \\_________/ \n");
+        printf("\t\t@@@@@@@@@   XX    XX    XX  XXXXX    XXXXXXX                 \n");
+        printf("--------------------------------------------------------------------------------------------\n");
 
 	if (argc < 3 ){
 		writeHelpMessage(argv[0]);
