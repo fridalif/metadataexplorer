@@ -41,6 +41,7 @@ typedef enum {
         TIFF_MODEL = (0x01<<8)|0x10,
         TIFF_EXPOSURETIME = (0x82<<8)|0x9A,
         TIFF_FNUMBER = (0x82<<8)|(0x9D),
+        TIFF_SOFTWARE = (0x01<<8)|0x31,
         TIFF_ISOSPEEDRATING = (0x88<<8)|0x27,
         TIFF_USERCOMENT = (0x92<<8)|0x86,
         TIFF_LATITUDEREF = (0x00<<8)|(0x01),
@@ -202,7 +203,7 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                                         ratFirst = (tag->data[i*2]<<24)|(tag->data[i*2+1]<<16)|(tag->data[i*2+2]<<8)|(tag->data[i*2+3]);
                                         ratSecond = (tag->data[i*2+4]<<24)|(tag->data[i*2+5]<<16)|(tag->data[i*2+6]<<8)|(tag->data[i*2+7]);
                                 }
-                                printf(" %d/%d \n", ratSecond, ratFirst);
+                                printf(" %d/%d", ratSecond, ratFirst);
                                 
                                 break;
                         case EXIF_SRATIONAL:
@@ -214,7 +215,7 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                                         sratSecond = (tag->data[i*2+4]<<24)|(tag->data[i*2+5]<<16)|(tag->data[i*2+6]<<8)|(tag->data[i*2+7]);
                                 }
                                 
-                                printf(" %d/%d \n", sratSecond, sratFirst);
+                                printf(" %d/%d", sratSecond, sratFirst);
                                 
                                 break;
                         case EXIF_FLOAT:
@@ -231,7 +232,7 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                                         byteArray[3] = tag->data[i+3];
                                 }
                                 floatRes = *((float*)byteArray);
-                                printf(" %.2f\n", floatRes);
+                                printf(" %.2f", floatRes);
                                 break;
                         case EXIF_DOUBLE:
                                 if (isLittleEndian) {
@@ -255,7 +256,7 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                                         bigByteArray[7] = tag->data[i+7];
                                 }
                                 doubleRes = *((double*)bigByteArray);
-                                printf(" %.2lf\n", doubleRes);
+                                printf(" %.2lf", doubleRes);
                                 break;
                 }
                 
@@ -349,6 +350,9 @@ void printTIFFInfo(TIFFInfo* start, int isLittleEndian) {
                                 break;
                         case TIFF_LONGITUDEREF:
                                 name = "Долгота направление";
+                                break;
+                        case TIFF_SOFTWARE:
+                                name = "Программа";
                                 break;
                         default:
                                 char buffname[100];
@@ -1783,6 +1787,7 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
                         if (isLittleEndian == 1) {
                                 tag = (readTag[1]<<8)|readTag[0];
                         }
+                        
                         tagInfo->tagType = (TIFFTags)tag;
                         unsigned char tagFormat[2] = {0x00,0x00};
                         result = fread(tagFormat,1,2,fp_in);
@@ -1847,10 +1852,10 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
                                 }
                         } else {
                                ifdLen+=resultLenght;
-                               long currentPos = ftell(fp_in);
+                               
                                unsigned char offsetBytes[4] = {0x00};
                                result = fread(offsetBytes,1,4,fp_in);
-                               printf("offset bytes: %02x %02x %02x %02x\n",offsetBytes[0],offsetBytes[1],offsetBytes[2],offsetBytes[3]);
+                               long currentPos = ftell(fp_in);
                                u_int32_t offset = (offsetBytes[0]<<24)|(offsetBytes[1]<<16)|(offsetBytes[2]<<8)|offsetBytes[3];
                                if (isLittleEndian == 1) {
                                        offset = (offsetBytes[3]<<24)|(offsetBytes[2]<<16)|(offsetBytes[1]<<8)|offsetBytes[0];
@@ -3822,7 +3827,7 @@ char* getData(int argc, char** argv) {
 
 
 int main(int argc, char** argv) {
-        printf("--------------------------------------------------------------------------------\n");
+        printf("\n\n\n");
         printf("\t\t\t              __            \n");
         printf("\t\t\t             /\\ \\           \n");
         printf("\t\t\t  ___ ___    \\_\\ \\     __   \n");
@@ -3830,7 +3835,7 @@ int main(int argc, char** argv) {
         printf("\t\t\t/\\ \\/\\ \\/\\ \\/\\ \\L\\ \\/\\  __/ \n");
         printf("\t\t\t\\ \\_\\ \\_\\ \\_\\ \\___,_\\ \\____\\\n");
         printf("\t\t\t \\/_/\\/_/\\/_/\\/__,_ /\\/____/\n\n");
-        printf("--------------------------------------------------------------------------------\n");
+        printf("\n\n\n");
 
 	if (argc < 3 ){
 		writeHelpMessage(argv[0]);
