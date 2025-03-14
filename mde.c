@@ -29,6 +29,9 @@ typedef enum {
         TIFF_COMPRESSION = (0x01<<8)|0x03,
         TIFF_PHOTOMETRIC_INETRPRETATION = (0x01<<8)|0x06,
         TIFF_SAMPLES_PER_PIXEL = (0x01<<8)|0x15,
+        TIFF_STRIP_OFFSETS = (0x01<<8)|0x11,
+        TIFF_FILL_ORDER = (0x01<<8)|0x0A,
+        //TIFF_SAMPLES_PER_PIXEL = (0x01<<8)|0x12,
         TIFF_ROWS_PER_STRIP = (0x01<<8)|0x16,
         TIFF_STRIP_BYTE_COUNT = (0x01<<8)|0x17,
         TIFF_XRESOLUTION = (0x01<<8)|0x1A,
@@ -158,7 +161,7 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                         printf("\n");
                         break;
                 }
-                switch (tag->tagType) {
+                switch (tag->format) {
                         case EXIF_SHORT:
                                 if (isLittleEndian == 1) {
                                         shortInt = (tag->data[i*2+1]<<8)|tag->data[i*2];
@@ -256,7 +259,9 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                                 printf(" %.2lf\n", doubleRes);
                                 break;
                 }
+                
         }
+        printf("\n");
 }
 
 void printTIFFInfo(TIFFInfo* start, int isLittleEndian) {
@@ -276,6 +281,21 @@ void printTIFFInfo(TIFFInfo* start, int isLittleEndian) {
                 switch (temp->tagType) {
                         case TIFF_IMAGE_WIDTH:
                                 name = "Ширина изображения";
+                                break;
+                        case TIFF_BITS_PER_SAMPLE:
+                                name = "Количество бит на пиксель";
+                                break;
+                        case TIFF_PHOTOMETRIC_INETRPRETATION:
+                                name = "Формат изображения";
+                                break;
+                        case TIFF_STRIP_OFFSETS:
+                                name = "Смещение полос";
+                                break;
+                        case TIFF_SAMPLES_PER_PIXEL:
+                                name = "Количество каналов";
+                                break;
+                        case TIFF_FILL_ORDER:
+                                name = "Порядок заполнения";
                                 break;
                         case TIFF_IMAGE_LENGTH:
                                 name = "Высота изображения";
@@ -332,7 +352,9 @@ void printTIFFInfo(TIFFInfo* start, int isLittleEndian) {
                                 name = "Долгота направление";
                                 break;
                         default:
-                                name = "Unknown";
+                                char buffname[100];
+                                sprintf(buffname,"Unknown tag %d", temp->tagType);
+                                name = buffname;
                                 break;
                 }
                 printTIFFTags(temp,isLittleEndian, name);
@@ -1738,7 +1760,7 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
                 if (isLittleEndian == 1) {
                         nextIFDOffset = (nextIFDOffsetBytes[3]<<24)|(nextIFDOffsetBytes[2]<<16)|(nextIFDOffsetBytes[1]<<8)|nextIFDOffsetBytes[0];
                 }
-                fseek(fp_in,nextIFDOffset,SEEK_CUR);
+                fseek(fp_in,nextIFDOffset,SEEK_SET);
                 unsigned char tagCounter[2] = {0x00,0x00};
                 int result = fread(tagCounter,1,2,fp_in);
                 if (result < 2 || !fp_in) {
@@ -1781,6 +1803,7 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
                                 continue;
                         }
                         u_int32_t length = (tagLength[0]<<24)|(tagLength[1]<<16)|(tagLength[2]<<8)|tagLength[3];
+                        
                         if (isLittleEndian == 1) {
                                 length = (tagLength[3]<<24)|(tagLength[2]<<16)|(tagLength[1]<<8)|tagLength[0];
                         }
@@ -1820,11 +1843,15 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
                         unsigned char* data = (unsigned char*)malloc(resultLenght);
                         if (resultLenght <= 4) {
                                 result = fread(data,1,resultLenght,fp_in);
+                                if (resultLenght<4) {
+                                        fseek(fp_in,4-resultLenght,SEEK_CUR);
+                                }
                         } else {
                                ifdLen+=resultLenght;
                                long currentPos = ftell(fp_in);
                                unsigned char offsetBytes[4] = {0x00};
                                result = fread(offsetBytes,1,4,fp_in);
+                               printf("offset bytes: %02x %02x %02x %02x\n",offsetBytes[0],offsetBytes[1],offsetBytes[2],offsetBytes[3]);
                                u_int32_t offset = (offsetBytes[0]<<24)|(offsetBytes[1]<<16)|(offsetBytes[2]<<8)|offsetBytes[3];
                                if (isLittleEndian == 1) {
                                        offset = (offsetBytes[3]<<24)|(offsetBytes[2]<<16)|(offsetBytes[1]<<8)|offsetBytes[0];
@@ -3796,15 +3823,15 @@ char* getData(int argc, char** argv) {
 
 
 int main(int argc, char** argv) {
-        printf("--------------------------------------------------------------------------------------------\n");
-        printf("\t\t@@@@@@@@@   XXX        XXX  XXXXX    XXXXXXX                 \n");
-        printf("\t\t@       @   XXXX      XXXX  XXXXXX   XXXXXXX     \\__│__│___/ \n");
-        printf("\t\t@  @@@  @   XXXXX    XXXXX  XX   XX  XX          /   ...   \\ \n");
-        printf("\t\t@       @   XX XXX   XX XX  XX    XX XXXXX      /   . . .   \\\n");
-        printf("\t\t@  @@@  @   XX  XX  XX  XX  XX   XX  XX         \\    ...    /\n");
-        printf("\t\t@       @   XX    XX    XX  XXXXXX   XXXXXXX     \\_________/ \n");
-        printf("\t\t@@@@@@@@@   XX    XX    XX  XXXXX    XXXXXXX                 \n");
-        printf("--------------------------------------------------------------------------------------------\n");
+        printf("--------------------------------------------------------------------------------\n");
+        printf("\t\t\t              __            \n");
+        printf("\t\t\t             /\\ \\           \n");
+        printf("\t\t\t  ___ ___    \\_\\ \\     __   \n");
+        printf("\t\t\t/' __` __`\\  /'_` \\  /'__`\\ \n");
+        printf("\t\t\t/\\ \\/\\ \\/\\ \\/\\ \\L\\ \\/\\  __/ \n");
+        printf("\t\t\t\\ \\_\\ \\_\\ \\_\\ \\___,_\\ \\____\\\n");
+        printf("\t\t\t \\/_/\\/_/\\/_/\\/__,_ /\\/____/\n\n");
+        printf("--------------------------------------------------------------------------------\n");
 
 	if (argc < 3 ){
 		writeHelpMessage(argv[0]);
