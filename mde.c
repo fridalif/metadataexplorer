@@ -83,6 +83,7 @@ struct TIFFInfo {
         unsigned char* data;
         u_int32_t structuresCount;
         u_int16_t ifdNumber;
+        u_int32_t dataLen;
 };
 
 struct ExifInfo{
@@ -123,7 +124,221 @@ void clearTIFFInfo(TIFFInfo* start) {
                 temp = nextNode;
         }
 }
+void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
+        printf("%s в байтах:", name);
+        for (int i = 0; i < tag->dataLen; i++) {
+                printf(" %02x", tag->data[i]);
+        }
+        printf("\n");
+        printf("%s: ", name);
+        u_int16_t shortInt = 0;
+        u_int32_t longInt = 0;
+        int16_t sshortInt = 0;
+        int32_t slongInt = 0;
+        u_int32_t ratFirst = 0;
+        u_int32_t ratSecond = 1;
+        int32_t sratFirst = 0;
+        int32_t sratSecond = 1;
+        float floatRes = 0;
+        double doubleRes = 0;
+        char byteArray[4] = {0};
+        char bigByteArray[8] = {0};
+        for (int i = 0; i < tag->structuresCount; i++) {
+                if (tag->tagType == EXIF_BYTE || tag->tagType == EXIF_ASCII || tag->tagType == EXIF_SBYTE || tag->tagType == EXIF_DATETIME || tag->tagType ==EXIF_UNDEFINED) {
+                        if (isLittleEndian == 1) {
+                                for (int j = tag->dataLen-1; j >= 0; j--) {
+                                        if (tag->data[j] == 0x00) {
+                                                continue;
+                                        }
+                                        printf(" %c", tag->data[j]);
+                                }
+                        } else {
+                                printf(" %s", tag->data);
+                        }
+                        printf("\n");
+                        break;
+                }
+                switch (tag->tagType) {
+                        case EXIF_SHORT:
+                                if (isLittleEndian == 1) {
+                                        shortInt = (tag->data[i*2+1]<<8)|tag->data[i*2];
+                                } else {
+                                        shortInt = (tag->data[i*2]<<8)|tag->data[i*2+1];
+                                }
+                                printf(" %d", shortInt);
+                                break;   
+                        case EXIF_SSHORT:
+                                if (isLittleEndian == 1) {
+                                        sshortInt = (tag->data[i*2+1]<<8)|tag->data[i*2];
+                                } else {
+                                        sshortInt = (tag->data[i*2]<<8)|tag->data[i*2+1];
+                                }
+                                printf(" %d", sshortInt);
+                                break;
+                        case EXIF_LONG:
+                                 if (isLittleEndian == 1) {
+                                        longInt = (tag->data[i*2+3]<<24)|(tag->data[i*2+2]<<16)|(tag->data[i*2+1]<<8)|tag->data[i*2];
+                                } else {
+                                        longInt = (tag->data[i*2]<<24)|(tag->data[i*2+1]<<16)|(tag->data[i*2+2]<<8)|(tag->data[i*2+3]);
+                                }
+                                printf(" %d", longInt);
+                                break;
+                        case EXIF_SLONG:
+                                if (isLittleEndian == 1) {
+                                        slongInt = (tag->data[i*2+3]<<24)|(tag->data[i*2+2]<<16)|(tag->data[i*2+1]<<8)|tag->data[i*2];
+                                } else {
+                                        slongInt = (tag->data[i*2]<<24)|(tag->data[i*2+1]<<16)|(tag->data[i*2+2]<<8)|(tag->data[i*2+3]);
+                                }
+                                printf(" %d", slongInt);
+                                break;
+                        case EXIF_RATIONAL:
+                                if (isLittleEndian == 1) {
+                                       ratSecond = (tag->data[i*2+3]<<24)|(tag->data[i*2+2]<<16)|(tag->data[i*2+1]<<8)|tag->data[i*2];
+                                       ratFirst = (tag->data[i*2+7]<<24)|(tag->data[i*2+6]<<16)|(tag->data[i*2+5]<<8)|tag->data[i*2+4]; 
+                                } else {
+                                        ratFirst = (tag->data[i*2]<<24)|(tag->data[i*2+1]<<16)|(tag->data[i*2+2]<<8)|(tag->data[i*2+3]);
+                                        ratSecond = (tag->data[i*2+4]<<24)|(tag->data[i*2+5]<<16)|(tag->data[i*2+6]<<8)|(tag->data[i*2+7]);
+                                }
+                                if (ratSecond != 0) {
+                                        printf(" %d/%d \n", ratFirst, ratSecond);
+                                }
+                                break;
+                        case EXIF_SRATIONAL:
+                                if (isLittleEndian == 1) {
+                                       sratSecond = (tag->data[i*2+3]<<24)|(tag->data[i*2+2]<<16)|(tag->data[i*2+1]<<8)|tag->data[i*2];
+                                       sratFirst = (tag->data[i*2+7]<<24)|(tag->data[i*2+6]<<16)|(tag->data[i*2+5]<<8)|tag->data[i*2+4]; 
+                                } else {
+                                        sratFirst = (tag->data[i*2]<<24)|(tag->data[i*2+1]<<16)|(tag->data[i*2+2]<<8)|(tag->data[i*2+3]);
+                                        sratSecond = (tag->data[i*2+4]<<24)|(tag->data[i*2+5]<<16)|(tag->data[i*2+6]<<8)|(tag->data[i*2+7]);
+                                }
+                                if (sratSecond != 0) {
+                                        printf(" %d/%d \n", sratFirst, sratSecond);
+                                }
+                                break;
+                        case EXIF_FLOAT:
+                                if (isLittleEndian) {
+                                        byteArray[0] = tag->data[i+3];
+                                        byteArray[1] = tag->data[i+2];
+                                        byteArray[2] = tag->data[i+1];
+                                        byteArray[3] = tag->data[i];
 
+                                } else {
+                                        byteArray[0] = tag->data[i];
+                                        byteArray[1] = tag->data[i+1];
+                                        byteArray[2] = tag->data[i+2];
+                                        byteArray[3] = tag->data[i+3];
+                                }
+                                floatRes = *((float*)byteArray);
+                                printf(" %.2f\n", floatRes);
+                                break;
+                        case EXIF_DOUBLE:
+                                if (isLittleEndian) {
+                                        bigByteArray[0] = tag->data[i+7];
+                                        bigByteArray[1] = tag->data[i+6];
+                                        bigByteArray[2] = tag->data[i+5];
+                                        bigByteArray[3] = tag->data[i+4];
+                                        bigByteArray[4] = tag->data[i+3];
+                                        bigByteArray[5] = tag->data[i+2];
+                                        bigByteArray[6] = tag->data[i+1];
+                                        bigByteArray[7] = tag->data[i];
+
+                                } else {
+                                        bigByteArray[0] = tag->data[i];
+                                        bigByteArray[1] = tag->data[i+1];
+                                        bigByteArray[2] = tag->data[i+2];
+                                        bigByteArray[3] = tag->data[i+3];
+                                        bigByteArray[4] = tag->data[i+4];
+                                        bigByteArray[5] = tag->data[i+5];
+                                        bigByteArray[6] = tag->data[i+6];
+                                        bigByteArray[7] = tag->data[i+7];
+                                }
+                                doubleRes = *((double*)bigByteArray);
+                                printf(" %.2lf\n", doubleRes);
+                                break;
+                }
+        }
+}
+
+void printTIFFInfo(TIFFInfo* start, int isLittleEndian) {
+        TIFFInfo* temp = start;
+        int ifdNumber = 0;
+        while(temp!=NULL) {
+                if (temp->data==NULL) {
+                        temp = temp->next;
+                        continue;
+                }
+                if (temp->ifdNumber != ifdNumber) {
+                        ifdNumber = temp->ifdNumber;
+                        printf("\n\nIFD %d\n", ifdNumber);
+                        
+                }
+                char* name = NULL;
+                switch (temp->tagType) {
+                        case TIFF_IMAGE_WIDTH:
+                                name = "Ширина изображения";
+                                break;
+                        case TIFF_IMAGE_LENGTH:
+                                name = "Высота изображения";
+                                break;
+                        case TIFF_ROWS_PER_STRIP:
+                                name = "Количество строк в одной полосе";
+                                break;
+                        case TIFF_STRIP_BYTE_COUNT:
+                                name = "Количество байтов в полосе";
+                                break;
+                        case TIFF_XRESOLUTION:
+                                name = "Разрешение по X";
+                                break;
+                        case TIFF_YRESOLUTION:
+                                name = "Разрешение по Y";
+                                break;
+                        case TIFF_RESOLUTION_UNIT:
+                                name = "Единица измерения";
+                                break;
+                        case TIFF_MAKE:
+                                name = "Производитель";
+                                break;
+                        case TIFF_MODEL:
+                                name = "Модель";
+                                break;
+                        case TIFF_EXPOSURETIME:
+                                name = "Время экспозиции";
+                                break;
+                        case TIFF_FNUMBER:
+                                name = "Апертура";
+                                break;
+                        case TIFF_ISOSPEEDRATING:
+                                name = "ISO-чувствительность";
+                                break;
+                        case TIFF_USERCOMENT:
+                                name = "Комментарий";
+                                break;
+                        case TIFF_DATETIME:
+                                name = "Дата и время";
+                                break;
+                        case TIFF_IMAGEDESCRIPTION:
+                                name = "Описание";
+                                break;
+                        case TIFF_LATITUDE:
+                                name = "Широта";
+                                break;
+                        case TIFF_LONGITUDE:
+                                name = "Долгота";
+                                break;
+                        case TIFF_LATITUDEREF:
+                                name = "Широта направление";
+                                break;
+                        case TIFF_LONGITUDEREF:
+                                name = "Долгота направление";
+                                break;
+                        default:
+                                name = "Unknown";
+                                break;
+                }
+                printTIFFTags(temp,isLittleEndian, name);
+                temp = temp->next;
+        }        
+}
 
 int writeHelpMessage(char* execName) {
 	printf("Использование: %s {--update, --add, --delete, --read, --help} [{Опции}]\n", execName);
@@ -1512,16 +1727,126 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
                 return 1;
         }
         TIFFInfo* start = initTiffInfo();
+        int ifdCounter = 0;
         unsigned char nextIFDOffsetBytes[4] = {0x00, 0x00, 0x00, 0x00};
         while (fread(nextIFDOffsetBytes,1,4,fp_in) == 4) {
+                if (nextIFDOffsetBytes[0] == 0x00 && nextIFDOffsetBytes[1] == 0x00 && nextIFDOffsetBytes[2] == 0x00 && nextIFDOffsetBytes[3] == 0x00) {
+                        break;
+                }
+                ifdCounter++;
                 u_int32_t nextIFDOffset = (nextIFDOffsetBytes[0]<<24)|(nextIFDOffsetBytes[1]<<16)|(nextIFDOffsetBytes[2]<<8)|nextIFDOffsetBytes[3];
                 if (isLittleEndian == 1) {
                         nextIFDOffset = (nextIFDOffsetBytes[3]<<24)|(nextIFDOffsetBytes[2]<<16)|(nextIFDOffsetBytes[1]<<8)|nextIFDOffsetBytes[0];
                 }
                 fseek(fp_in,nextIFDOffset,SEEK_CUR);
-                
+                unsigned char tagCounter[2] = {0x00,0x00};
+                int result = fread(tagCounter,1,2,fp_in);
+                if (result < 2 || !fp_in) {
+                        break;
+                }
+                u_int16_t tagCount = (tagCounter[0]<<8)|tagCounter[1];
+                if (isLittleEndian == 1) {
+                        tagCount = (tagCounter[1]<<8)|tagCounter[0];
+                }
+                long ifdLen = 0;
+                long ifdStart = ftell(fp_in);
+                for (u_int16_t i = 0; i < tagCount; i++) {
+                        TIFFInfo* tagInfo = initTiffInfo();
+                        unsigned char readTag[2] = {0x00,0x00};
+                        result = fread(readTag,1,2,fp_in);
+                        if (result < 2 || !fp_in) {
+                                free(tagInfo);
+                                continue;
+                        }
+                        u_int16_t tag = (readTag[0]<<8)|readTag[1];
+                        if (isLittleEndian == 1) {
+                                tag = (readTag[1]<<8)|readTag[0];
+                        }
+                        tagInfo->tagType = (TIFFTags)tag;
+                        unsigned char tagFormat[2] = {0x00,0x00};
+                        result = fread(tagFormat,1,2,fp_in);
+                        if (result < 2 || !fp_in) {
+                                free(tagInfo);
+                                continue;
+                        }
+                        u_int16_t format = (tagFormat[0]<<8)|tagFormat[1];
+                        if (isLittleEndian == 1) {
+                                format = (tagFormat[1]<<8)|tagFormat[0];
+                        }
+                        tagInfo->format = (ExifFormats)format;
+                        unsigned char tagLength[4] = {0x00,0x00,0x00,0x00};
+                        result = fread(tagLength,1,4,fp_in);
+                        if (result < 4 || !fp_in) {
+                                free(tagInfo);
+                                continue;
+                        }
+                        u_int32_t length = (tagLength[0]<<24)|(tagLength[1]<<16)|(tagLength[2]<<8)|tagLength[3];
+                        if (isLittleEndian == 1) {
+                                length = (tagLength[3]<<24)|(tagLength[2]<<16)|(tagLength[1]<<8)|tagLength[0];
+                        }
+                        tagInfo->structuresCount = length;
+                        u_int32_t resultLenght = length;
+                        switch (tagInfo->format) {
+                                case EXIF_ASCII:
+                                case EXIF_BYTE:
+                                case EXIF_UNDEFINED:
+                                case EXIF_SBYTE:
+                                case EXIF_DATETIME:
+                                        break;
+                                case EXIF_SHORT:
+                                case EXIF_SSHORT:
+                                        resultLenght = length*2;
+                                        break;
+                                case EXIF_LONG:
+                                case EXIF_SLONG:
+                                case EXIF_FLOAT:
+                                        resultLenght = length*4;
+                                        break;
+                                case EXIF_RATIONAL:
+                                case EXIF_SRATIONAL:
+                                case EXIF_DOUBLE:
+                                        resultLenght = length*8;
+                                        break;
+                                default:
+                                        resultLenght = 0;
+                                        break;
+                        }
+                        if (resultLenght == 0) {
+                                free(tagInfo);
+                                continue;
+                        }
+                        ifdLen += 12;
+                        tagInfo->dataLen = resultLenght;
+                        unsigned char* data = (unsigned char*)malloc(resultLenght);
+                        if (resultLenght <= 4) {
+                                result = fread(data,1,resultLenght,fp_in);
+                        } else {
+                               ifdLen+=resultLenght;
+                               long currentPos = ftell(fp_in);
+                               unsigned char offsetBytes[4] = {0x00};
+                               result = fread(offsetBytes,1,4,fp_in);
+                               u_int32_t offset = (offsetBytes[0]<<24)|(offsetBytes[1]<<16)|(offsetBytes[2]<<8)|offsetBytes[3];
+                               if (isLittleEndian == 1) {
+                                       offset = (offsetBytes[3]<<24)|(offsetBytes[2]<<16)|(offsetBytes[1]<<8)|offsetBytes[0];
+                               }
+                               fseek(fp_in,offset,SEEK_SET);
+                               result = fread(data,1,resultLenght,fp_in);
+                               fseek(fp_in,currentPos,SEEK_SET);
+                        }
+                        if (result < resultLenght || !fp_in) {
+                                free(tagInfo);
+                                free(data);
+                                continue;
+                        }
+                        tagInfo->data = data;
+                        tagInfo->ifdNumber = ifdCounter;
+                        appendTiff(start,tagInfo);
+                               
+                }
+                fseek(fp_in,ifdStart+ifdLen,SEEK_SET);
+                ifdCounter++;
         }
-        
+        printTIFFInfo(start, isLittleEndian);
         clearTIFFInfo(start);
 }
 
