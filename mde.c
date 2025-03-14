@@ -202,9 +202,8 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                                         ratFirst = (tag->data[i*2]<<24)|(tag->data[i*2+1]<<16)|(tag->data[i*2+2]<<8)|(tag->data[i*2+3]);
                                         ratSecond = (tag->data[i*2+4]<<24)|(tag->data[i*2+5]<<16)|(tag->data[i*2+6]<<8)|(tag->data[i*2+7]);
                                 }
-                                if (ratSecond != 0) {
-                                        printf(" %d/%d \n", ratFirst, ratSecond);
-                                }
+                                printf(" %d/%d \n", ratSecond, ratFirst);
+                                
                                 break;
                         case EXIF_SRATIONAL:
                                 if (isLittleEndian == 1) {
@@ -214,9 +213,9 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
                                         sratFirst = (tag->data[i*2]<<24)|(tag->data[i*2+1]<<16)|(tag->data[i*2+2]<<8)|(tag->data[i*2+3]);
                                         sratSecond = (tag->data[i*2+4]<<24)|(tag->data[i*2+5]<<16)|(tag->data[i*2+6]<<8)|(tag->data[i*2+7]);
                                 }
-                                if (sratSecond != 0) {
-                                        printf(" %d/%d \n", sratFirst, sratSecond);
-                                }
+                                
+                                printf(" %d/%d \n", sratSecond, sratFirst);
+                                
                                 break;
                         case EXIF_FLOAT:
                                 if (isLittleEndian) {
