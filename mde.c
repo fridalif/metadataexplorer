@@ -1914,6 +1914,7 @@ int readMetadataPNG(FILE* fp_in) {
                 for (int i = 0; i < tempRemain; i++){
                         printf("%02x",metaData[i]);
                 }
+                printf("\n");
                 if (metaData!=NULL) {
 		        free(metaData);
                         metaData = NULL;
