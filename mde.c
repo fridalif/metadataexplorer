@@ -3181,7 +3181,80 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
         }
         return 1;
 }
-
+int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** argv) {
+        fclose(fp_in);
+        printf("Копирование исходного файла в %s_delete_copy\n", filename);
+        char* new_filename = (char*)malloc(strlen(filename) + strlen("_delete_copy") + 1);
+        if (new_filename == NULL) {
+                printf("Ошибка выделения памяти\n");
+                return 1;
+        }
+        strcpy(new_filename, filename);
+        strcat(new_filename, "_delete_copy");
+        fp_in = fopen(filename, "rb");
+        FILE* fp_out = fopen(new_filename, "wb");
+        if (!fp_out) {
+                printf("Ошибка открытия файла для резервного копирования\n");
+                free(new_filename);
+                return 1;
+        }
+        unsigned char currentByte = 0x00;
+        while(fread(&currentByte, 1, 1, fp_in) == 1){
+                fwrite(&currentByte, 1, 1, fp_out);
+        }
+        if (fp_out) fclose(fp_out);
+        if (fp_in) fclose(fp_in);
+        printf("Удаление метаданных\n");
+        fp_in = fopen(new_filename, "rb");
+        fp_out = fopen(filename, "wb");
+        unsigned char* oldData = NULL;
+        for (int i = 0; i < argc; i++) {
+                if (strcmp(argv[i], "--oldData") == 0) {
+                        if (argc <= i+1 || strcmp(argv[i+1],"") == 0) {
+                                continue;
+                        }
+                        oldData = argv[i+1];
+                }
+        }
+        while(fread(&currentByte, 1, 1, fp_in) == 1){
+                if (oldData == NULL) {
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        continue;   
+                }
+                if (currentByte != 0x21) {
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        continue;
+                }
+                unsigned char nextByte = 0x00;
+                fread(&nextByte, 1, 1, fp_in);
+                if (nextByte != 0xfe) {
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        fwrite(&nextByte, 1, 1, fp_out);
+                        continue;
+                }
+                u_int8_t length = 0x00;
+                fread(&length, 1, 1, fp_in);
+                if (length != strlen(oldData)) {
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        fwrite(&nextByte, 1, 1, fp_out);
+                        fwrite(&length, 1, 1, fp_out);
+                        continue;
+                }
+                char* currentData = (char*)malloc(length + 1);
+                fread(currentData, length+1, 1, fp_in);
+                if (strcmp(currentData, oldData) == 0) {
+                        continue;
+                }
+                fwrite(&currentByte, 1, 1, fp_out);
+                fwrite(&nextByte, 1, 1, fp_out);
+                fwrite(&length, 1, 1, fp_out);
+                fwrite(currentData, length+1, 1, fp_out);
+                free(currentData);
+        }
+        if (fp_out) fclose(fp_out);
+        if (fp_in) fclose(fp_in);
+        return 1;
+}
 int deleteMetadata(char* filename, char* header, int argc, char** argv) {
         struct stat fileInfo;
         char atimeBufferInput[20];
@@ -3230,6 +3303,8 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
                 deleteMetadataTIFF(fp_in, header, filename, argc,argv, 1);
         } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
                 deleteMetadataTIFF(fp_in, header, filename, argc,argv, 0);
+        } else if (headerBytes[0] == 0x47 && headerBytes[1] == 0x49 && headerBytes[2] == 0x46)  {
+                deleteMetadataGIF(fp_in, header, filename, argc,argv);
         } else {
                 printf("Неподдерживаемый формат файла\n");
                 fclose(fp_in);
