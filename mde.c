@@ -3216,8 +3216,9 @@ int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
                         oldData = argv[i+1];
                 }
         }
+        int found = -1;
         while(fread(&currentByte, 1, 1, fp_in) == 1){
-                if (oldData == NULL) {
+                if (oldData == NULL || found == 1) {
                         fwrite(&currentByte, 1, 1, fp_out);
                         continue;   
                 }
@@ -3243,6 +3244,7 @@ int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
                 char* currentData = (char*)malloc(length + 1);
                 fread(currentData, length+1, 1, fp_in);
                 if (strcmp(currentData, oldData) == 0) {
+                        found = 1;
                         continue;
                 }
                 fwrite(&currentByte, 1, 1, fp_out);
@@ -3253,6 +3255,7 @@ int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
         }
         if (fp_out) fclose(fp_out);
         if (fp_in) fclose(fp_in);
+        free(new_filename);
         return 1;
 }
 int deleteMetadata(char* filename, char* header, int argc, char** argv) {
@@ -4091,6 +4094,7 @@ int addMetadataGIF(FILE* fp_in, char* filename, char* header, char* data, int ar
                 fclose(fp_in);
         }
         if (fp_out) fclose(fp_out);
+        free(new_filename);
         return 1;
 }
 int addMetadata(char* filename, char* header, char* data, int argc, char** argv) {
@@ -4840,6 +4844,131 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         }
         return 0;
 }
+int updateMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** argv) {
+        fclose(fp_in);
+
+        printf("Копирование исходного файла в %s_update_copy\n", filename);
+        char* new_filename = (char*)malloc(strlen(filename) + strlen("_update_copy") + 1);
+        if (new_filename == NULL) {
+                printf("Ошибка выделения памяти\n");
+                return 1;
+        }
+        strcpy(new_filename, filename);
+        strcat(new_filename, "_update_copy");
+        fp_in = fopen(filename, "rb");
+        if (fp_in == NULL) {
+                printf("Ошибка открытия файла %s\n", filename);
+                free(new_filename);
+                return 1;
+        }
+        FILE* fp_out = fopen(new_filename, "wb");
+        if (fp_out == NULL) {
+                printf("Ошибка открытия файла %s_update_copy\n", filename);
+                free(new_filename);
+                return 1;
+        }
+        unsigned char currentByte = 0x00;
+        while(fread(&currentByte, 1, 1, fp_in) == 1){
+                fwrite(&currentByte, 1, 1, fp_out);
+        }
+        fclose(fp_in);
+        fp_in = fopen(new_filename, "rb");
+        if (fp_in == NULL) {
+                printf("Ошибка открытия файлов для изменения метаданных\n");
+                free(new_filename);
+                return 1;
+        }
+        fp_out = fopen(filename, "wb");
+        unsigned char* oldData = NULL;
+        unsigned char* newData = NULL;
+        int delay = 0;
+        for (int i = 0; i < argc; i++){
+                if (i+1 >= argc){
+                        continue;
+                }
+                if (strcmp(argv[i],"--delay") == 0){
+                        
+                        delay = atoi(argv[i+1]);
+                        continue;
+                }
+                if (strcmp(argv[i],"--oldData") == 0){
+                        oldData = argv[i+1];
+                        continue;
+                }
+                if (strcmp(argv[i],"--newData") == 0){
+                        newData = argv[i+1];
+                        continue;
+                }
+        }
+        int headerFound = 0;
+        int found = -1;
+        while(fread(&currentByte, 1, 1, fp_in) == 1){
+                if (currentByte != 0x21) {
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        continue;
+                }
+                unsigned char nextByte = 0x00;
+                fread(&nextByte, 1, 1, fp_in);
+                if (nextByte != 0xf9 && nextByte != 0xfe) {
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        fwrite(&nextByte, 1, 1, fp_out);
+                        continue;
+                }
+                if (nextByte == 0xfe) {
+                        if (found == 1) {
+                                continue;
+                        }
+                        u_int8_t length = 0x00;
+                        fread(&length, 1, 1, fp_in);
+                        if (length != strlen(oldData)) {
+                                fwrite(&currentByte, 1, 1, fp_out);
+                                fwrite(&nextByte, 1, 1, fp_out);
+                                fwrite(&length, 1, 1, fp_out);
+                                continue;
+                        }
+                        char* currentData = (char*)malloc(length + 1);
+                        fread(currentData, length+1, 1, fp_in);
+                        if (strcmp(currentData, oldData) == 0) {
+                                found = 1;
+                                fwrite(&currentByte, 1, 1, fp_out);
+                                fwrite(&nextByte, 1, 1, fp_out);
+                                u_int8_t newLength = strlen(newData);
+                                fwrite(&newLength, 1, 1, fp_out);
+                                fwrite(newData, 1, newLength, fp_out);
+                                unsigned char nullByte = 0x00;
+                                fwrite(&nullByte, 1, 1, fp_out);
+                                free(currentData);
+                                continue;
+                        }
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        fwrite(&nextByte, 1, 1, fp_out);
+                        fwrite(&length, 1, 1, fp_out);
+                        fwrite(currentData, length+1, 1, fp_out);
+                        free(currentData);
+                        continue;
+                }
+                if (delay<=0) {
+                        fwrite(&currentByte, 1, 1, fp_out);
+                        fwrite(&nextByte, 1, 1, fp_out);
+                        continue;
+                }
+                unsigned char notImportantBytes[2] = {0x00, 0x00};
+                fread(notImportantBytes, 2, 1, fp_in);
+                fwrite(&currentByte, 1, 1, fp_out);
+                fwrite(&nextByte, 1, 1, fp_out);
+                fwrite(notImportantBytes, 2, 1, fp_out);
+                fseek(fp_in, 2, SEEK_CUR);
+                unsigned char delayBytes[2] = {(u_int16_t)delay & 0xff, (u_int16_t)delay>>8 & 0xff};
+                fwrite(&delayBytes, 2, 1, fp_out);
+                fread(&currentByte,1,1,fp_in);
+                fwrite(&currentByte, 1, 1, fp_out);
+                delay = -1;
+        }
+        printf("Метаданные изменены\n");
+        free(new_filename);
+        fclose(fp_in);
+        fclose(fp_out);
+}
 
 int updateMetadata(char* filename, char* header, char* data, int argc, char** argv) {
         struct stat fileInfo;
@@ -4889,6 +5018,8 @@ int updateMetadata(char* filename, char* header, char* data, int argc, char** ar
                 updateMetadataTIFF(fp_in, header, data, filename, argc,argv, 1);
         } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
                 updateMetadataTIFF(fp_in, header, data, filename, argc,argv, 0);
+        } else if (headerBytes[0] == 0x47 && headerBytes[1] == 0x49 && headerBytes[2] == 0x46)  {
+                updateMetadataGIF(fp_in, header, filename, argc,argv);
         } else {
                 printf("Неподдерживаемый формат файла\n");
                 fclose(fp_in);
