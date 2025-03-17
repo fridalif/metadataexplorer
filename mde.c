@@ -400,8 +400,8 @@ int writeHelpMessage(char* execName) {
         printf("\t atime - Дата последнего доступа \n");
         printf("\t ctime - Дата изменения метаданных \n");
         printf("\t mtime - Дата последнего изменения \n");
-	printf("--header <Заголовок> - Заголовок метаданных (комментария) при изменении, удалении и добавлении \n");
-	printf("--data <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена подмена\n");
+	printf("--header <Заголовок> - Заголовок метаданных (комментария) при изменении, удалении и добавлении (для PNG, JPEG и GIF) \n");
+	printf("--data <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена подмена (для PNG, JPEG и GIF)\n");
         printf("\nPNG\n");
         printf("\t--width <Пиксели> - Ширина в пикселях(только в режиме --add и --update)\n");
         printf("\t--height <Пиксели> - Высота в пикселях(только в режиме --add и --update)\n");
@@ -444,30 +444,262 @@ int writeHelpMessage(char* execName) {
         printf("\t\t10 - Знаковое рациональное число (значение записывается как <Число>/<Число>)\n");
         printf("\t\t11 - Float (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
         printf("\t\t12 - Double (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
-
+        printf("\nTIFF\n");
+        printf("\t--make \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Фирма камеры (только для --add и --update)\n");
+        printf("\t--make - Фирма камеры (только для --delete)\n");
+        printf("\t--model \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Модель камеры (только для --add и --update)\n");
+        printf("\t--model - Модель камеры (только для --delete)\n");
+        printf("\t--exposure \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Время экспозиции (только для --add и --update)\n");
+        printf("\t--exposure - Время экспозиции (только для --delete)\n");
+        printf("\t--fnumber \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Апертура (только для --add и --update)\n");
+        printf("\t--fnumber - Апертура (только для --delete)\n");
+        printf("\t--lat \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Широта (только для --add и --update)\n");
+        printf("\t--lat - Широта (только для --delete)\n");
+        printf("\t--lon \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Долгота (только для --add и --update)\n");
+        printf("\t--lon - Долгота (только для --delete)\n");
+        printf("\t--latRef \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Направление широты (обычно буквы N(North) или S(South)) (только для --add и --update)\n");
+        printf("\t--latRef - Направление широты (только для --delete)\n");
+        printf("\t--lonRef\" <Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Направление долготы (обычно буквы E(East) или W(West))(только для --add и --update)\n");
+        printf("\t--lonRef - Направление долготы (только для --delete)\n");
+        printf("\t--dt \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Дата и время (только для --add и --update)\n");
+        printf("\t--dt - Дата и время (только для --delete)\n");
+        printf("\t--imageDescription \"<Значение>(;<Значение>;<Значение>...)\" --type <Идентификатор_типа> - Описание изображения (только для --add и --update)\n");
+        printf("\t--imageDescription - Описание изображения (только для --delete)\n");
+        printf("\tИдентификаторы типов:\n");
+        printf("\t\t1 - Байт\n");
+        printf("\t\t2 - ASCII строка\n");
+        printf("\t\t3 - 2-х байтовое беззнаковое число\n");
+        printf("\t\t4 - 4-х байтовое беззнаковое число\n");
+        printf("\t\t5 - Беззнаковое рациональное число (значение записывается как <Число>/<Число>)\n");
+        printf("\t\t6 - Знаковый байт\n");
+        printf("\t\t7 - Неизвестный тип(интерпретируется как строка)\n");
+        printf("\t\t8 - 2-х байтовое знаковое число\n");
+        printf("\t\t9 - 4-х байтовое беззнаковое число\n");
+        printf("\t\t10 - Знаковое рациональное число (значение записывается как <Число>/<Число>)\n");
+        printf("\t\t11 - Float (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
+        printf("\t\t12 - Double (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
         printf("\nGIF\n");
         printf("\tВ разработке\n");
-        printf("\nTIFF\n");
-        printf("\tВ разработке\n");
         return 1;
-        /*
-                int make = foundExifTagInCLI(argc,argv,"--make");
-        int model = foundExifTagInCLI(argc,argv,"--model");
-        int exposure = foundExifTagInCLI(argc,argv,"--exposure");
-        int FNumber = foundExifTagInCLI(argc,argv,"--fnumber");
-        int ISR = foundExifTagInCLI(argc,argv,"--isr");
-        int userComment = foundExifTagInCLI(argc,argv,"--usercomment");
-        int latitude = foundExifTagInCLI(argc,argv,"--lat");
-        int longitude = foundExifTagInCLI(argc,argv,"--lon");
-        int latitudeRef = foundExifTagInCLI(argc,argv,"--latRef");
-        int longitudeRef = foundExifTagInCLI(argc,argv,"--lonRef");
-        int datetime = foundExifTagInCLI(argc,argv,"--dt");
-        int imageDescription = foundExifTagInCLI(argc,argv,"--imageDescription");
-        */
+        
 }
 
-int rewriteTIFF(TIFFInfo* start, char* filename) {
+u_int16_t getIFDInnerCount(TIFFInfo* start, int ifdNumber) {
+        TIFFInfo* current = start;
+        u_int16_t counter = 0;
+        while (current) {
+                if (current->ifdNumber == ifdNumber) {
+                        counter++;
+                }
+                current = current->next;
+        }
+        return counter;
+}
 
+int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
+        if (fp_in) {
+                fclose(fp_in);
+        }
+        char* new_filename = (char*)malloc(strlen(filename) + strlen(operation) + strlen("_copy") + 1);
+        if (new_filename == NULL) {
+                printf("Ошибка выделения памяти\n");
+                return 1;
+        }
+        strcpy(new_filename, filename);
+        strcpy(new_filename, operation);
+        strcat(new_filename, "_copy");
+        fp_in = fopen(filename, "rb");
+        FILE* fp_out = fopen(new_filename, "wb");
+        if (!fp_in || !fp_out) {
+                printf("Ошибка: не удалось открыть файлы при копировании\n");
+                free(new_filename);
+                return 1;
+        }
+        unsigned char currentChar = 0x00;
+        while (fread(&currentChar,1,1,fp_in) == 1 && fp_in) {
+                fwrite(&currentChar,1,1,fp_out);
+        }
+        if (fp_in) {
+                fclose(fp_in);
+        }
+        if (fp_out) {
+                fclose(fp_out);
+        }
+        fp_in = fopen(new_filename,"rb");
+        fp_out = fopen(filename, "wb");
+        if (!fp_in || !fp_out) {
+                printf("Ошибка: не удалось открыть файлы при изменении\n");
+                free(new_filename);
+                return 1;
+        }
+        int isLittleEndian = 0;
+        unsigned char startBytes[4] = {0x00};
+        fread(startBytes,1,4,fp_in);
+        if (startBytes[0] == 0x49 && startBytes[1] == 0x49 && startBytes[2] == 0x2A && startBytes[3] == 0x00) {
+                isLittleEndian = 1;
+        }
+        fwrite(startBytes,1,4,fp_out);
+        unsigned char firstIFDOffsetBytes[4] = {0x00};
+        fread(firstIFDOffsetBytes,1,4,fp_in);
+        fwrite(firstIFDOffsetBytes,1,4,fp_out);
+        unsigned char nextIFDOffsetBytes[4] = {0x00, 0x00, 0x00, 0x00};
+        while (fread(nextIFDOffsetBytes,1,4,fp_in) == 4) {
+                if (nextIFDOffsetBytes[0] == 0x00 && nextIFDOffsetBytes[1] == 0x00 && nextIFDOffsetBytes[2] == 0x00 && nextIFDOffsetBytes[3] == 0x00) {
+                        break;
+                }
+                u_int32_t nextIFDOffset = (nextIFDOffsetBytes[0]<<24)|(nextIFDOffsetBytes[1]<<16)|(nextIFDOffsetBytes[2]<<8)|nextIFDOffsetBytes[3];
+                if (isLittleEndian == 1) {
+                        nextIFDOffset = (nextIFDOffsetBytes[3]<<24)|(nextIFDOffsetBytes[2]<<16)|(nextIFDOffsetBytes[1]<<8)|nextIFDOffsetBytes[0];
+                }
+                fseek(fp_in,nextIFDOffset,SEEK_SET);
+                unsigned char tagCounter[2] = {0x00,0x00};
+                int result = fread(tagCounter,1,2,fp_in);
+                if (result < 2 || !fp_in) {
+                        break;
+                }
+                u_int16_t tagCount = (tagCounter[0]<<8)|tagCounter[1];
+                if (isLittleEndian == 1) {
+                        tagCount = (tagCounter[1]<<8)|tagCounter[0];
+                }
+                long ifdLen = 0;
+                long ifdStart = ftell(fp_in);
+                for (u_int16_t i = 0; i < tagCount; i++) {
+                        unsigned char readTag[2] = {0x00,0x00};
+                        result = fread(readTag,1,2,fp_in);
+                        if (result < 2 || !fp_in) {
+                                continue;
+                        }
+                        u_int16_t tag = (readTag[0]<<8)|readTag[1];
+                        if (isLittleEndian == 1) {
+                                tag = (readTag[1]<<8)|readTag[0];
+                        }
+                        
+                        unsigned char tagFormat[2] = {0x00,0x00};
+                        result = fread(tagFormat,1,2,fp_in);
+                        if (result < 2 || !fp_in) {
+                                continue;
+                        }
+                        u_int16_t format = (tagFormat[0]<<8)|tagFormat[1];
+                        if (isLittleEndian == 1) {
+                                format = (tagFormat[1]<<8)|tagFormat[0];
+                        }
+                        unsigned char tagLength[4] = {0x00,0x00,0x00,0x00};
+                        result = fread(tagLength,1,4,fp_in);
+                        if (result < 4 || !fp_in) {
+                                continue;
+                        }
+                        u_int32_t length = (tagLength[0]<<24)|(tagLength[1]<<16)|(tagLength[2]<<8)|tagLength[3];
+                        
+                        if (isLittleEndian == 1) {
+                                length = (tagLength[3]<<24)|(tagLength[2]<<16)|(tagLength[1]<<8)|tagLength[0];
+                        }
+                        u_int32_t resultLenght = length;
+                        switch (format) {
+                                case EXIF_ASCII:
+                                case EXIF_BYTE:
+                                case EXIF_UNDEFINED:
+                                case EXIF_SBYTE:
+                                case EXIF_DATETIME:
+                                        break;
+                                case EXIF_SHORT:
+                                case EXIF_SSHORT:
+                                        resultLenght = length*2;
+                                        break;
+                                case EXIF_LONG:
+                                case EXIF_SLONG:
+                                case EXIF_FLOAT:
+                                        resultLenght = length*4;
+                                        break;
+                                case EXIF_RATIONAL:
+                                case EXIF_SRATIONAL:
+                                case EXIF_DOUBLE:
+                                        resultLenght = length*8;
+                                        break;
+                                default:
+                                        resultLenght = 0;
+                                        break;
+                        }
+                        if (resultLenght == 0) {
+                                continue;
+                        }
+                        ifdLen += 12;
+                        unsigned char* data = (unsigned char*)malloc(resultLenght);
+                        if (resultLenght <= 4) {
+                                result = fread(data,1,resultLenght,fp_in);
+                                if (resultLenght<4) {
+                                        fseek(fp_in,4-resultLenght,SEEK_CUR);
+                                }
+                        } else {
+                               ifdLen+=resultLenght;
+                               
+                               unsigned char offsetBytes[4] = {0x00};
+                               result = fread(offsetBytes,1,4,fp_in);
+                               long currentPos = ftell(fp_in);
+                               u_int32_t offset = (offsetBytes[0]<<24)|(offsetBytes[1]<<16)|(offsetBytes[2]<<8)|offsetBytes[3];
+                               if (isLittleEndian == 1) {
+                                       offset = (offsetBytes[3]<<24)|(offsetBytes[2]<<16)|(offsetBytes[1]<<8)|offsetBytes[0];
+                               }
+                               fseek(fp_in,offset,SEEK_SET);
+                               result = fread(data,1,resultLenght,fp_in);
+                               fseek(fp_in,currentPos,SEEK_SET);
+                        }
+                        if (result < resultLenght || !fp_in) {
+                                free(data);
+                                continue;
+                        }
+                        free(data);
+                               
+                }
+                fseek(fp_in,ifdStart+ifdLen,SEEK_SET);
+        }
+        u_int32_t offset = 8;
+        TIFFInfo* temp = start;
+        int currentIFD = 0;
+        while (temp!=NULL) {
+                if (temp->data == NULL) {
+                        temp = temp->next;
+                        continue;
+                }
+                currentIFD = temp->ifdNumber;
+                u_int16_t counterIFD = getIFDInnerCount(temp, currentIFD);
+                unsigned char counterIFDBytes[2] = {counterIFD>>8 & 0xff,counterIFD & 0xff};
+                if (isLittleEndian == 1) {
+                        counterIFDBytes[0] = counterIFD & 0xff;
+                        counterIFDBytes[1] = counterIFD>>8 & 0xff;
+                }
+                fwrite(counterIFDBytes,1,2,fp_out);
+                offset+=2;
+                TIFFInfo* newTemp = temp;
+                while (newTemp!=NULL) {
+                        if (newTemp->ifdNumber>currentIFD) {
+                                currentIFD = newTemp->ifdNumber;
+                                break;
+                        }
+                        if (newTemp->data == NULL) {
+                                newTemp = newTemp->next;
+                                continue;
+                        }
+                        offset+=2;
+                        
+                        unsigned char formatBytes[2] = {(newTemp->format >> 8) & 0xFF, newTemp->format & 0xFF};
+                        if (isLittleEndian == 1) {
+                                formatBytes[0] = newTemp->format & 0xFF;
+                                formatBytes[1] = (newTemp->format >> 8) & 0xFF;
+                        }
+                        //!!
+                        newTemp = newTemp->next;
+                }
+        }
+        if (currentIFD != 0) {
+                unsigned char nullBytes[4] = {0x00,0x00,0x00,0x00};
+                fwrite(nullBytes,1,4,fp_out);
+        }
+        unsigned char otherBytes = 0x00;
+        while (fp_in && fread(&otherBytes,1,1,fp_in) == 1) {
+                fwrite(&otherBytes,1,1,fp_out);
+        }
+        free(new_filename);
+        return 0;
 }
 
 int append(ExifInfo* start, ExifInfo* appendingItem) {
@@ -2460,7 +2692,7 @@ int deleteMetadataTIFF(FILE* fp_in, char* header, char* filename, int argc, char
         if (imageDescription != 0) {
                 deleteTiffTag(startPoint, TIFF_IMAGEDESCRIPTION);
         }
-        rewriteTIFF(startPoint, filename);
+        rewriteTIFF(startPoint, filename, "delete", fp_in);
         clearTIFFInfo(startPoint);
 }
 
@@ -2921,7 +3153,7 @@ int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int a
                 fillTIFFInfoFromCLI(imageDescription, newNode, TIFF_IMAGEDESCRIPTION, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
-        rewriteTIFF(tiffInfo, filename);
+        rewriteTIFF(tiffInfo, filename, "add", fp_in);
         clearTIFFInfo(tiffInfo);
 }
 
@@ -3695,7 +3927,7 @@ int updateMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, in
                 fillTIFFInfoFromCLI(imageDescription, newNode, TIFF_IMAGEDESCRIPTION, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
-        rewriteTIFF(tiffInfo, filename);
+        rewriteTIFF(tiffInfo, filename, "update", fp_in);
         clearTIFFInfo(tiffInfo);
 }
 
@@ -3736,8 +3968,8 @@ int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, in
         unsigned char jfifBuffer[2] = {0x00,0x00};
         int hasJFIFCLI = getJFIFVersionArgument(argc, argv, jfifBuffer);
         unsigned char currentByte = 0x00;
-        printf("Копирование исходного файла в %s_add_copy\n", filename);
-        char* new_filename = (char*)malloc(strlen(filename) + strlen("_add_copy") + 1);
+        printf("Копирование исходного файла в %s_update_copy\n", filename);
+        char* new_filename = (char*)malloc(strlen(filename) + strlen("_update_copy") + 1);
         if (new_filename == NULL) {
                 printf("Ошибка выделения памяти\n");
                 return 1;
