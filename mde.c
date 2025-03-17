@@ -669,26 +669,108 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 }
                 fwrite(counterIFDBytes,1,2,fp_out);
                 offset+=2;
+                u_int32_t innerOffset = offset;
                 TIFFInfo* newTemp = temp;
+                //offsetCount
                 while (newTemp!=NULL) {
                         if (newTemp->ifdNumber>currentIFD) {
-                                currentIFD = newTemp->ifdNumber;
                                 break;
                         }
                         if (newTemp->data == NULL) {
                                 newTemp = newTemp->next;
                                 continue;
                         }
-                        offset+=2;
-                        
-                        unsigned char formatBytes[2] = {(newTemp->format >> 8) & 0xFF, newTemp->format & 0xFF};
-                        if (isLittleEndian == 1) {
-                                formatBytes[0] = newTemp->format & 0xFF;
-                                formatBytes[1] = (newTemp->format >> 8) & 0xFF;
-                        }
-                        //!!
+                        offset+=12;
+                        innerOffset+=12;
                         newTemp = newTemp->next;
                 }
+                newTemp = temp;
+                //ifd
+                while (newTemp!=NULL) {
+                        if (newTemp->ifdNumber>currentIFD) {
+                                break;
+                        }
+                        if (newTemp->data == NULL) {
+                                newTemp = newTemp->next;
+                                continue;
+                        }
+                        unsigned char tagTypeBytes[2] = {newTemp->tagType>>8 & 0xff,newTemp->tagType & 0xff};
+                        if (isLittleEndian == 1) {
+                                tagTypeBytes[0] = newTemp->tagType & 0xff;
+                                tagTypeBytes[1] = newTemp->tagType>>8 & 0xff;
+                        }
+                        fwrite(tagTypeBytes,1,2,fp_out);
+                        unsigned char formatBytes[2] = {newTemp->format>>8 & 0xff,newTemp->format & 0xff};
+                        if (isLittleEndian == 1) {
+                                formatBytes[0] = newTemp->format & 0xff;
+                                formatBytes[1] = newTemp->format>>8 & 0xff;
+                        }
+                        fwrite(formatBytes,1,2,fp_out);
+                        unsigned char countBytes[4] = {newTemp->structuresCount>>24 & 0xff,newTemp->structuresCount>>16 & 0xff,newTemp->structuresCount>>8 & 0xff,newTemp->structuresCount & 0xff};
+                        if (isLittleEndian == 1) {
+                                countBytes[0] = newTemp->structuresCount & 0xff;
+                                countBytes[1] = newTemp->structuresCount>>8 & 0xff;
+                                countBytes[2] = newTemp->structuresCount>>16 & 0xff;
+                                countBytes[3] = newTemp->structuresCount>>24 & 0xff;
+                        }
+                        fwrite(countBytes,1,4,fp_out);
+                        unsigned char offsetBytes[4] = {0x00};
+                        if (newTemp->dataLen <= 4) {
+                                offsetBytes[0] = newTemp->dataLen>>24 & 0xff;
+                                offsetBytes[1] = newTemp->dataLen>>16 & 0xff;
+                                offsetBytes[2] = newTemp->dataLen>>8 & 0xff;
+                                offsetBytes[3] = newTemp->dataLen & 0xff;
+                                if (isLittleEndian == 1) {
+                                        offsetBytes[0] = newTemp->dataLen & 0xff;
+                                        offsetBytes[1] = newTemp->dataLen>>8 & 0xff;
+                                        offsetBytes[2] = newTemp->dataLen>>16 & 0xff;
+                                        offsetBytes[3] = newTemp->dataLen>>24 & 0xff;
+                                }
+                        } else {
+                                offsetBytes[0] = innerOffset>>24 & 0xff;
+                                offsetBytes[1] = innerOffset>>16 & 0xff;
+                                offsetBytes[2] = innerOffset>>8 & 0xff;
+                                offsetBytes[3] = innerOffset & 0xff;
+                                if (isLittleEndian == 1) {
+                                        offsetBytes[0] = innerOffset & 0xff;
+                                        offsetBytes[1] = innerOffset>>8 & 0xff;
+                                        offsetBytes[2] = innerOffset>>16 & 0xff;
+                                        offsetBytes[3] = innerOffset>>24 & 0xff;
+                                }
+                                innerOffset+=newTemp->dataLen;
+                                offset+=newTemp->dataLen;
+                        }
+                        fwrite(offsetBytes,1,4,fp_out);
+                        newTemp = newTemp->next;
+                }
+                newTemp = temp;
+                while (newTemp!=NULL) {
+                        if (newTemp->ifdNumber>currentIFD) {
+                                currentIFD = newTemp->ifdNumber;
+                                break;
+                        }
+                        if (newTemp->data == NULL || newTemp->dataLen <= 4) {
+                                newTemp = newTemp->next;
+                                continue;
+                        }
+                        fwrite(newTemp->data,1,newTemp->dataLen,fp_out);
+                        newTemp = newTemp->next;
+                }
+                if (currentIFD != temp->ifdNumber) {
+                        unsigned char offsetBytes[4] = {0x00,0x00,0x00,0x00};
+                        offsetBytes[0] = innerOffset>>24 & 0xff;
+                        offsetBytes[1] = innerOffset>>16 & 0xff;
+                        offsetBytes[2] = innerOffset>>8 & 0xff;
+                        offsetBytes[3] = innerOffset & 0xff;
+                        if (isLittleEndian == 1) {
+                                offsetBytes[0] = innerOffset & 0xff;
+                                offsetBytes[1] = innerOffset>>8 & 0xff;
+                                offsetBytes[2] = innerOffset>>16 & 0xff;
+                                offsetBytes[3] = innerOffset>>24 & 0xff;
+                        }
+                        fwrite(offsetBytes,1,4,fp_out);
+                }
+                temp = temp->next;
         }
         if (currentIFD != 0) {
                 unsigned char nullBytes[4] = {0x00,0x00,0x00,0x00};
