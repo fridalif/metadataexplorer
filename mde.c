@@ -842,6 +842,221 @@ int parseDoubleCLI(char* data, double* numbersArray) {
         return realCounter;
 }
 
+void fillTIFFInfoFromCLI(CLIExifArgument argument, TIFFInfo* newNode, TIFFTags tagType, int isLittleEndian) {
+        newNode->next = NULL;
+        newNode->tagType = tagType;
+        int count = 0;
+        int realCounter = 0;
+        unsigned char* dataArray = NULL;
+        char* reversedBytes = NULL;
+        switch (argument.format) {
+                case EXIF_BYTE:
+                case EXIF_ASCII:
+                case EXIF_SBYTE:
+                case EXIF_UNDEFINED:
+                        newNode->data = argument.data;
+                        newNode->dataLen = strlen(argument.data);
+                        newNode->structuresCount = strlen(argument.data);
+                        if (isLittleEndian == 1) {
+                                reversedBytes = (char*)malloc(newNode->dataLen);
+                                for (int j = newNode->dataLen-1; j >= 0; j++) {
+                                        reversedBytes[newNode->dataLen-1-j] = newNode->data[j];
+                                }
+                                free(newNode->data);
+                                newNode->data = reversedBytes;
+                        }
+                        break;
+                case EXIF_SHORT:
+                        count = argumentsCount(argument.data);
+                        u_int16_t* elementsArrayUI16 = (u_int16_t*)malloc(count*2);
+                        realCounter = parseShortCLI(argument.data,elementsArrayUI16);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*2); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[2*i] = elementsArrayUI16[i]>>8 & 0xff;
+                                dataArray[2*i+1] = elementsArrayUI16[i] & 0xff;
+                                if (isLittleEndian == 1) {
+                                        dataArray[2*i+1] = elementsArrayUI16[i]>>8 & 0xff;
+                                        dataArray[2*i] = elementsArrayUI16[i] & 0xff;    
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter;
+                        newNode->dataLen = 2*realCounter;
+                        free(elementsArrayUI16);
+                        break;
+                case EXIF_LONG:
+                        count = argumentsCount(argument.data);
+                        u_int32_t* elementsArrayUI32 = (u_int32_t*)malloc(count*4);
+                        realCounter = parseLongCLI(argument.data,elementsArrayUI32);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArrayUI32[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArrayUI32[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArrayUI32[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArrayUI32[i] & 0xff;
+                                if (isLittleEndian == 1) {
+                                        dataArray[4*i+3] = elementsArrayUI32[i]>>24 & 0xff;
+                                        dataArray[4*i+2] = elementsArrayUI32[i]>>16 & 0xff;
+                                        dataArray[4*i+1] = elementsArrayUI32[i]>>8 & 0xff;
+                                        dataArray[4*i] = elementsArrayUI32[i] & 0xff;
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter;
+                        newNode->dataLen = 4*realCounter;
+                        free(elementsArrayUI32);
+                        break;
+                case EXIF_RATIONAL:
+                        count = argumentsCount(argument.data);
+                        u_int32_t* elementsArrayRAT = (u_int32_t*)malloc(count*8);
+                        realCounter = parseRationalCLI(argument.data,elementsArrayRAT);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArrayRAT[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArrayRAT[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArrayRAT[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArrayRAT[i] & 0xff;
+                                if (isLittleEndian == 1) {
+                                        dataArray[4*i+3] = elementsArrayRAT[i]>>24 & 0xff;
+                                        dataArray[4*i+2] = elementsArrayRAT[i]>>16 & 0xff;
+                                        dataArray[4*i+1] = elementsArrayRAT[i]>>8 & 0xff;
+                                        dataArray[4*i] = elementsArrayRAT[i] & 0xff;
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter/2;
+                        newNode->dataLen = 4*realCounter;
+                        free(elementsArrayRAT);
+                
+                case EXIF_SSHORT:
+                        count = argumentsCount(argument.data);
+                        int16_t* elementsArrayI16 = (int16_t*)malloc(count*2);
+                        realCounter = parseSShortCLI(argument.data,elementsArrayI16);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*2); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[2*i] = elementsArrayI16[i]>>8 & 0xff;
+                                dataArray[2*i+1] = elementsArrayI16[i] & 0xff;
+                                if (isLittleEndian == 1) {
+                                        dataArray[2*i+1] = elementsArrayI16[i]>>8 & 0xff;
+                                        dataArray[2*i] = elementsArrayI16[i] & 0xff;
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter;
+                        newNode->dataLen = 2*realCounter;
+                        free(elementsArrayI16);
+                        break;
+                case EXIF_SLONG:
+                        count = argumentsCount(argument.data);
+                        int32_t* elementsArrayI32 = (int32_t*)malloc(count*4);
+                        realCounter = parseSLongCLI(argument.data,elementsArrayI32);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArrayI32[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArrayI32[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArrayI32[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArrayI32[i] & 0xff;
+                                if (isLittleEndian == 1) {
+                                        dataArray[4*i+3] = elementsArrayI32[i]>>24 & 0xff;
+                                        dataArray[4*i+2] = elementsArrayI32[i]>>16 & 0xff;
+                                        dataArray[4*i+1] = elementsArrayI32[i]>>8 & 0xff;
+                                        dataArray[4*i] = elementsArrayI32[i] & 0xff;
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter;
+                        newNode->dataLen = 4*realCounter;
+                        free(elementsArrayI32);
+                        break;
+                case EXIF_SRATIONAL:
+                        count = argumentsCount(argument.data);
+                        int32_t* elementsArraySRAT = (int32_t*)malloc(count*8);
+                        realCounter = parseSRationalCLI(argument.data,elementsArraySRAT);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                dataArray[4*i] = elementsArraySRAT[i]>>24 & 0xff;
+                                dataArray[4*i+1] = elementsArraySRAT[i]>>16 & 0xff;
+                                dataArray[4*i+2] = elementsArraySRAT[i]>>8 & 0xff;
+                                dataArray[4*i+3] = elementsArraySRAT[i] & 0xff;
+                                if (isLittleEndian == 1) {
+                                        dataArray[4*i+3] = elementsArraySRAT[i]>>24 & 0xff;
+                                        dataArray[4*i+2] = elementsArraySRAT[i]>>16 & 0xff;
+                                        dataArray[4*i+1] = elementsArraySRAT[i]>>8 & 0xff;
+                                        dataArray[4*i] = elementsArraySRAT[i] & 0xff;
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter/2;
+                        newNode->dataLen = 4*realCounter;
+                        free(elementsArraySRAT);
+                        break;
+                case EXIF_FLOAT:
+                        count = argumentsCount(argument.data);
+                        float* elementsArrayFloat = (float*)malloc(count*4);
+                        realCounter = parseFloatCLI(argument.data,elementsArrayFloat);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*4); 
+                        for (int i = 0; i < realCounter; i++) {
+                                u_int8_t bytes[sizeof(float)]; 
+                                memcpy(bytes, &elementsArrayFloat[i], sizeof(float));
+                                dataArray[4*i] = bytes[0];
+                                dataArray[4*i+1] = bytes[1];
+                                dataArray[4*i+2] = bytes[2];
+                                dataArray[4*i+3] = bytes[3];
+                                if (isLittleEndian == 1) {
+                                        dataArray[4*i+3] = bytes[0];
+                                        dataArray[4*i+2] = bytes[1];
+                                        dataArray[4*i+1] = bytes[2];
+                                        dataArray[4*i] = bytes[3];
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter;
+                        newNode->dataLen = 4*realCounter;
+                        free(elementsArrayFloat);
+                        break;
+                case EXIF_DOUBLE:
+                        count = argumentsCount(argument.data);
+                        double* elementsArrayDouble = (double*)malloc(count*8);
+                        realCounter = parseDoubleCLI(argument.data,elementsArrayDouble);
+                        free(argument.data);
+                        dataArray = (unsigned char*)malloc(realCounter*8); 
+                        for (int i = 0; i < realCounter; i++) {
+                                u_int8_t bytes[sizeof(double)]; 
+                                memcpy(bytes, &elementsArrayDouble[i], sizeof(double));
+                                dataArray[8*i] = bytes[0];
+                                dataArray[8*i+1] = bytes[1];
+                                dataArray[8*i+2] = bytes[2];
+                                dataArray[8*i+3] = bytes[3];
+                                dataArray[8*i+4] = bytes[4];
+                                dataArray[8*i+5] = bytes[5];
+                                dataArray[8*i+6] = bytes[6];
+                                dataArray[8*i+7] = bytes[7];
+                                if (isLittleEndian == 1) {
+                                        dataArray[8*i+7] = bytes[0];
+                                        dataArray[8*i+6] = bytes[1];
+                                        dataArray[8*i+5] = bytes[2];
+                                        dataArray[8*i+4] = bytes[3];
+                                        dataArray[8*i+3] = bytes[4];
+                                        dataArray[8*i+2] = bytes[5];
+                                        dataArray[8*i+1] = bytes[6];
+                                        dataArray[8*i] = bytes[7];
+                                }
+                        }
+                        newNode->data = dataArray;
+                        newNode->structuresCount = realCounter;
+                        newNode->dataLen = 8*realCounter;
+                        free(elementsArrayDouble);
+                        break;
+        }
+        newNode->format = argument.format;
+}
 
 void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags tagType) {
         newNode->next = NULL;
@@ -1746,12 +1961,12 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
         return 1;
 }
 
-int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
+int readMetadataTIFF(FILE* fp_in, int isLittleEndian, int withClear, TIFFInfo* start) {
         if (!fp_in) {
                 printf("Ошибка: не удалось считать из файла\n");
                 return 1;
         }
-        TIFFInfo* start = initTiffInfo();
+        if (start == NULL) start = initTiffInfo();
         int ifdCounter = 0;
         unsigned char nextIFDOffsetBytes[4] = {0x00, 0x00, 0x00, 0x00};
         while (fread(nextIFDOffsetBytes,1,4,fp_in) == 4) {
@@ -1877,8 +2092,10 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian) {
                 fseek(fp_in,ifdStart+ifdLen,SEEK_SET);
                 ifdCounter++;
         }
-        printTIFFInfo(start, isLittleEndian);
-        clearTIFFInfo(start);
+        if (withClear) printTIFFInfo(start, isLittleEndian);
+        if (withClear) clearTIFFInfo(start);
+        if (withClear) fclose(fp_in);
+        return 0;
 }
 
 
@@ -2077,14 +2294,14 @@ int readMetadata(char* filename, int argc, char** argv){
         printf("Тип файла: TIFF \n");
         printf("MIME Тип: image/tiff\n");
         printf("Байтовый порядок: Little-endian\n");
-        readMetadataTIFF(fp_in, 1);
+        readMetadataTIFF(fp_in, 1, 1, NULL);
     } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
         printf("\nВнутренние данные файла\n");
         printf("-----------------------\n");
         printf("Тип файла: TIFF \n");
         printf("MIME Тип: image/tiff\n");
         printf("Байтовый порядок: Big-endian\n");
-        readMetadataTIFF(fp_in, 0);
+        readMetadataTIFF(fp_in, 0,1, NULL);
     } else {
         printf("Неподдерживаемый формат файла\n");
         fclose(fp_in);
@@ -2516,6 +2733,99 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
 	МОДУЛЬ ДОБАВЛЕНИЯ
 
 */
+int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv, int isLittleEndian) {
+        if (!fp_in){
+                return -1;
+        }
+        fseek(fp_in,0,SEEK_SET);
+        CLIExifArgument make = constructorCLIExifArgument("--make");
+        CLIExifArgument model = constructorCLIExifArgument("--model");
+        CLIExifArgument exposure = constructorCLIExifArgument("--exposure");
+        CLIExifArgument FNumber = constructorCLIExifArgument("--fnumber");
+        CLIExifArgument ISR = constructorCLIExifArgument("--isr");
+        CLIExifArgument userComment = constructorCLIExifArgument("--usercomment");
+        CLIExifArgument latitude = constructorCLIExifArgument("--lat");
+        CLIExifArgument longitude = constructorCLIExifArgument("--lon");
+        CLIExifArgument latitudeRef = constructorCLIExifArgument("--latRef");
+        CLIExifArgument longitudeRef = constructorCLIExifArgument("--lonRef");
+        CLIExifArgument datetime = constructorCLIExifArgument("--dt");
+        CLIExifArgument imageDescription = constructorCLIExifArgument("--imageDescription");
+        getExifArgumentFromCLI(&make, argc, argv);
+        getExifArgumentFromCLI(&model, argc, argv);
+        getExifArgumentFromCLI(&exposure, argc, argv);
+        getExifArgumentFromCLI(&FNumber, argc, argv);
+        getExifArgumentFromCLI(&ISR, argc, argv);
+        getExifArgumentFromCLI(&userComment, argc, argv);
+        getExifArgumentFromCLI(&latitude, argc, argv);
+        getExifArgumentFromCLI(&latitudeRef, argc, argv);
+        getExifArgumentFromCLI(&longitude, argc, argv);
+        getExifArgumentFromCLI(&longitudeRef, argc, argv);
+        getExifArgumentFromCLI(&datetime, argc, argv);
+        getExifArgumentFromCLI(&imageDescription, argc, argv);
+        TIFFInfo* tiffInfo = initTiffInfo();
+        readMetadataTIFF(fp_in,isLittleEndian, 0,tiffInfo);
+        if (make.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(make, newNode, TIFF_MAKE, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (model.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(model, newNode, TIFF_MODEL, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (exposure.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(exposure, newNode, TIFF_EXPOSURETIME, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (FNumber.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(FNumber, newNode, TIFF_FNUMBER, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (ISR.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(ISR, newNode, TIFF_ISOSPEEDRATING, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (userComment.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(userComment, newNode, TIFF_USERCOMENT, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (latitude.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(latitude, newNode, TIFF_LATITUDE, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (latitudeRef.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(latitudeRef, newNode, TIFF_LATITUDEREF, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (longitude.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(longitude, newNode, TIFF_LONGITUDE, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (longitudeRef.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(longitudeRef, newNode, TIFF_LONGITUDEREF, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (datetime.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(datetime, newNode, TIFF_DATETIME, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (imageDescription.data != NULL) {
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(imageDescription, newNode, TIFF_IMAGEDESCRIPTION, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        clearTIFFInfo(tiffInfo);
+}
 int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
         if (!fp_in){
                 return -1;
