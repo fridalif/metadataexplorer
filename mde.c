@@ -480,9 +480,9 @@ int writeHelpMessage(char* execName) {
         printf("\t\t11 - Float (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
         printf("\t\t12 - Double (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
         printf("\nGIF\n");
-        printf("\tВ разработке\n");
         printf("\t--oldData <Данные> - Метаданные(комментарий), которые будут удалены или заменены\n");
         printf("\t--newData <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена замена\n");
+        printf("\t--delay <Число> - Задержка между кадрами в сотых секунды(только для --update)\n");
         return 1;
         
 }
@@ -2410,6 +2410,9 @@ int readMetadataGIF(FILE* fp_in) {
                         printf("\tДанные о приложении: %s\n", buffer);
                         free(buffer);
                         fread(&length,1,1,fp_in);
+                        if (length == 0) {
+                                continue;
+                        }
                         buffer = (unsigned char*)malloc(length);
                         printf("\tДанные в байтах:");
                         for (int i = 0; i < length; i++) {
