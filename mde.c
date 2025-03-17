@@ -400,8 +400,9 @@ int writeHelpMessage(char* execName) {
         printf("\t atime - Дата последнего доступа \n");
         printf("\t ctime - Дата изменения метаданных \n");
         printf("\t mtime - Дата последнего изменения \n");
-	printf("--header <Заголовок> - Заголовок метаданных (комментария) при изменении, удалении и добавлении (для PNG, JPEG и GIF) \n");
-	printf("--data <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена подмена (для PNG, JPEG и GIF)\n");
+	printf("--header <Заголовок> - Заголовок метаданных (комментария) при изменении, удалении и добавлении (для PNG, JPEG) \n");
+	printf("--data <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена подмена (для PNG, JPEG)\n");
+	
         printf("\nPNG\n");
         printf("\t--width <Пиксели> - Ширина в пикселях(только в режиме --add и --update) НЕБЕЗОПАСНО!\n");
         printf("\t--height <Пиксели> - Высота в пикселях(только в режиме --add и --update) НЕБЕЗОПАСНО!\n");
@@ -480,6 +481,8 @@ int writeHelpMessage(char* execName) {
         printf("\t\t12 - Double (значение записывается как <Целая_часть>.<Дробная_часть>)\n");
         printf("\nGIF\n");
         printf("\tВ разработке\n");
+        printf("\t--oldData <Данные> - Метаданные(комментарий), которые будут удалены или заменены\n");
+        printf("\t--newData <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена замена\n");
         return 1;
         
 }
@@ -2319,6 +2322,119 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
         return 1;
 }
 
+int readMetadataGIF(FILE* fp_in) {
+        unsigned char width[2] = {0x00};
+        unsigned char height[2] = {0x00};
+        unsigned char flags = 0x00;
+        unsigned char colorIndex = 0x00;
+        unsigned char resolution = 0x00;
+        fread(width, 1, 2, fp_in);
+        fread(height, 1, 2, fp_in);
+        fread(&flags, 1, 1, fp_in);
+        fread(&colorIndex,1,1,fp_in);
+        fread(&resolution,1,1,fp_in);
+        printf("Ширина холста в байтах: %02x %02x\n", width[0],width[1]);
+        printf("Ширина холста: %d\n", (u_int16_t)(width[0]|(width[1]<<8)));
+        printf("Высота холста в байтах: %02x %02x\n", height[0],height[1]);
+        printf("Высота холста: %d\n", (u_int16_t)(height[0]|(height[1]<<8)));
+        printf("Флаги: %02x\n", flags);
+        printf("Индекс цвета в таблице в байтах: %02x\n", colorIndex);
+        printf("Индекс цвета в таблице: %d\n", (u_int8_t)colorIndex);
+        printf("Соотношение сторон пикселя в байтах: %02x\n", resolution);
+        printf("Соотношение сторон пикселя: %d\n", (u_int8_t)resolution);
+        unsigned char currentByte = 0x00;
+        while(fp_in && fread(&currentByte, 1, 1, fp_in) == 1) {
+                if (currentByte != 0x21) {
+                        continue;
+                }
+                unsigned char nextByte = 0x00;
+                fread(&nextByte, 1, 1, fp_in);
+                if (nextByte != 0xF9 && nextByte!=0x01 && nextByte!=0xfe && nextByte!=0xff) {
+                        continue;
+                }
+                if (nextByte == 0xfe) {
+                        u_int8_t length = 0x00;
+                        fread(&length, 1, 1, fp_in);
+                        unsigned char* buffer = (unsigned char*)malloc(length);
+                        fread(buffer, 1, length, fp_in);
+                        printf("Найден комментарий в байтах:");
+                        for (int i = 0; i < length; i++) {
+                                printf(" %02x", buffer[i]);
+                        }
+                        printf("\n");
+                        printf("Найден комментарий: %s\n", buffer);
+                        free(buffer);
+                        continue;
+                }
+                if (nextByte == 0x01) {
+                        u_int8_t length = 0x00;
+                        fread(&length, 1, 1, fp_in);
+                        unsigned char* buffer = (unsigned char*)malloc(length);
+                        fread(buffer, 1, length, fp_in);
+                        printf("Найдены текстовые метаданные:\n");
+                        printf("\tМестоположение в байтах: %02x %02x от левого края %02x %02x от верхнего края\n", buffer[0],buffer[1],buffer[2],buffer[3]);
+                        printf("\tМестоположение: %d от левого края %d от верхнего края\n",(u_int16_t)(buffer[0]|buffer[1]<<8),(u_int16_t)(buffer[2]|buffer[3]<<8));
+                        printf("\tШирина области в байтах: %02x %02x\n", buffer[4], buffer[5]);
+                        printf("\tШирина области: %d\n", (u_int16_t)(buffer[4]|buffer[5]<<8));
+                        printf("\tВысота области в байтах: %02x %02x\n", buffer[6], buffer[7]);
+                        printf("\tВысота области: %d\n", (u_int16_t)(buffer[6]|buffer[7]<<8));
+                        printf("\tШирина и высота текста в байтах: %02x %02x\n", buffer[8],buffer[9]);
+                        printf("\tШирина и высота текста: %dx%d\n", (u_int8_t)(buffer[8]),(u_int8_t)(buffer[9]));
+                        printf("\tЦвет текста в байтах: %02x\n", buffer[10]);
+                        printf("\tЦвет текста: %d\n",(u_int8_t)buffer[10]);
+                        printf("\tЦвет фона в байтах: %02x\n", buffer[11]);
+                        printf("\tЦвет фона: %d\n",(u_int8_t)buffer[11]);
+                        free(buffer);
+                        fread(&length,1,1,fp_in);
+                        unsigned char* textBuffer = (unsigned char*)malloc(length);
+                        fread(textBuffer, 1, length, fp_in);
+                        printf("\tТекст в байтах:");
+                        for (int i = 0; i < length; i++) {
+                                printf(" %02x", buffer[i]);
+                        }
+                        printf("\n");
+                        printf("\tТекст: %s\n", textBuffer);
+                        free(textBuffer);
+                        continue;
+                }
+                if (nextByte == 0xff) {
+                        printf("Найдены данные приложения:\n");
+                        u_int8_t length = 0;
+                        fread(&length,1,1,fp_in);
+                        unsigned char* buffer = (unsigned char*)malloc(length);
+                        printf("\tДанные о приложении в байтах:");
+                        for (int i = 0; i < length; i++) {
+                                printf(" %02x", buffer[i]);
+                        }
+                        printf("\n");
+                        printf("\tДанные о приложении: %s\n", buffer);
+                        free(buffer);
+                        fread(&length,1,1,fp_in);
+                        buffer = (unsigned char*)malloc(length);
+                        printf("\tДанные в байтах:");
+                        for (int i = 0; i < length; i++) {
+                                printf(" %02x", buffer[i]);
+                        }
+                        printf("\n");
+                        printf("\tДанные: %s\n", buffer);
+                        free(buffer);
+                        continue;
+                }
+                u_int8_t length = 0;
+                fread(&length,1,1,fp_in);
+                unsigned char* buffer = (unsigned char*)malloc(length);
+                fread(buffer, 1, length, fp_in);
+                printf("Найден Graphic Control Extension:");
+                printf("\tФлаги в байтах: %02x\n", buffer[0]);
+                printf("\tЗадержка в сотых секунды в байтах: %02x %02x\n", buffer[1], buffer[2]);
+                printf("\tЗадержка в сотых: %d\n", (u_int16_t)(buffer[1]|buffer[2]<<8));
+                printf("\tИндекс прозрачного цвета в байтах: %02x\n", buffer[3]);
+                printf("\tИндекс прозрачного цвета: %d\n", (u_int8_t)buffer[3]);
+                free(buffer);
+                
+        }
+}
+
 int readMetadataTIFF(FILE* fp_in, int isLittleEndian, int withClear, TIFFInfo* start) {
         if (!fp_in) {
                 printf("Ошибка: не удалось считать из файла\n");
@@ -2660,6 +2776,16 @@ int readMetadata(char* filename, int argc, char** argv){
         printf("MIME Тип: image/tiff\n");
         printf("Байтовый порядок: Big-endian\n");
         readMetadataTIFF(fp_in, 0,1, NULL);
+    } else if (headerBytes[0] == 0x47 && headerBytes[1] == 0x49 && headerBytes[2] == 0x46) {
+        printf("\nВнутренние данные файла\n");
+        printf("-----------------------\n");
+        printf("Тип файла: GIF \n");
+        printf("MIME Тип: image/GIF\n");
+        printf("Версия: %c", headerBytes[3]);
+        unsigned char otherVersionBytes[2] = {0x00};
+        fread(otherVersionBytes,1,2,fp_in);
+        printf("%c%c\n", otherVersionBytes[0], otherVersionBytes[1]);
+        readMetadataGIF(fp_in);
     } else {
         printf("Неподдерживаемый формат файла\n");
         fclose(fp_in);
