@@ -3961,6 +3961,63 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 new_filename = NULL;
         }
 }
+
+int addMetadataGIF(FILE* fp_in, char* filename, char* header, char* data, int argc, char** argv) {
+        fclose(fp_in);
+
+        printf("Копирование исходного файла в %s_add_copy\n", filename);
+        char* new_filename = (char*)malloc(strlen(filename) + strlen("_add_copy") + 1);
+        if (new_filename == NULL) {
+                printf("Ошибка выделения памяти\n");
+                return 1;
+        }
+        strcpy(new_filename, filename);
+        strcat(new_filename, "_add_copy");
+        FILE* fp_out = fopen(new_filename, "wb");
+        fp_in = fopen(filename, "rb");
+        unsigned char currentByte = 0x00;
+        while (fp_in && fread(&currentByte,1,1,fp_in)) {
+                fwrite(&currentByte,1,1,fp_out);
+        }
+        if (fp_in) {
+                fclose(fp_in);
+        }
+        if (fp_out) fclose(fp_out);
+        printf("Копирование исходного файла: Успешно\n\n");
+        fp_in = fopen(new_filename, "rb");
+        fp_out = fopen(filename, "wb");
+        unsigned char* newData = NULL;
+        for (int i = 0; i< argc; i++) {
+                if (strcmp(argv[i],"--newData") == 0) {
+                        if (argc <= i+1 || strcmp(argv[i+1],"") == 0) {
+                                continue;
+                        }
+                        newData = argv[i+1];
+                        break;
+                }
+        }
+        unsigned char startBytes[13] = {0};
+        fread(startBytes,1,13,fp_in);
+        fwrite(startBytes,13,1,fp_out);
+        if (newData != NULL) {
+                unsigned char extensionId[2] = {0x21, 0xfe};
+                fwrite(extensionId, 2, 1, fp_out);
+                u_int8_t blockLength = strlen(newData);
+                fwrite(&blockLength, 1, 1, fp_out);
+                unsigned char nullByte = 0x00;
+                fwrite(newData, strlen(newData), 1, fp_out);
+                fwrite(&nullByte, 1, 1, fp_out);
+                printf("Добавление новых метаданных: Успешно\n\n");
+        }
+        while (fp_in && fread(&currentByte,1,1,fp_in)) {
+                fwrite(&currentByte,1,1,fp_out);
+        }
+        if (fp_in) {
+                fclose(fp_in);
+        }
+        if (fp_out) fclose(fp_out);
+        return 1;
+}
 int addMetadata(char* filename, char* header, char* data, int argc, char** argv) {
         struct stat fileInfo;
         char atimeBufferInput[20];
@@ -4009,6 +4066,8 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
                 addMetadataTIFF(fp_in, header, data, filename, argc,argv, 1);
         } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
                 addMetadataTIFF(fp_in, header, data, filename, argc,argv, 0);
+        } else if (headerBytes[0] == 0x47 && headerBytes[1] == 0x49 && headerBytes[2] == 0x46) {
+                addMetadataGIF(fp_in, filename, header, data, argc, argv);
         } else {
                 printf("Неподдерживаемый формат файла\n");
                 fclose(fp_in);
