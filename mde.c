@@ -128,6 +128,33 @@ void clearTIFFInfo(TIFFInfo* start) {
                 temp = nextNode;
         }
 }
+
+void deleteTiffTag(TIFFInfo* start, TIFFTags tag) {
+        TIFFInfo* tempTag = start;
+        TIFFInfo* tempTagNext = start->next;
+        while (tempTagNext!=NULL) {
+                if (tempTagNext->tagType == tag) {
+                        tempTag->next = tempTagNext->next;
+                        tempTagNext->next = NULL;
+                        clearTIFFInfo(tempTagNext);
+                        tempTagNext = tempTag->next;
+                        break;
+                }
+                tempTag = tempTagNext;
+                tempTagNext = tempTagNext->next;
+        }
+}
+
+
+
+int getLastIFD(TIFFInfo* start) {
+        TIFFInfo* temp = start;
+        while(temp->next!=NULL) {
+                temp = temp->next;
+        }
+        return temp->ifdNumber;
+}
+
 void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
         printf("%s в байтах:", name);
         for (int i = 0; i < tag->dataLen; i++) {
@@ -439,6 +466,9 @@ int writeHelpMessage(char* execName) {
         */
 }
 
+int rewriteTIFF(TIFFInfo* start, char* filename) {
+
+}
 
 int append(ExifInfo* start, ExifInfo* appendingItem) {
     if (start == NULL) {
@@ -2378,6 +2408,62 @@ int foundExifTagInCLI(int argc, char** argv, char* header) {
         } 
         return 0;
 }
+
+int deleteMetadataTIFF(FILE* fp_in, char* header, char* filename, int argc, char** argv, int isLittleEndian) {
+        TIFFInfo* startPoint = initTiffInfo();
+        int make = foundExifTagInCLI(argc,argv,"--make");
+        int model = foundExifTagInCLI(argc,argv,"--model");
+        int exposure = foundExifTagInCLI(argc,argv,"--exposure");
+        int FNumber = foundExifTagInCLI(argc,argv,"--fnumber");
+        int ISR = foundExifTagInCLI(argc,argv,"--isr");
+        int userComment = foundExifTagInCLI(argc,argv,"--usercomment");
+        int latitude = foundExifTagInCLI(argc,argv,"--lat");
+        int longitude = foundExifTagInCLI(argc,argv,"--lon");
+        int latitudeRef = foundExifTagInCLI(argc,argv,"--latRef");
+        int longitudeRef = foundExifTagInCLI(argc,argv,"--lonRef");
+        int datetime = foundExifTagInCLI(argc,argv,"--dt");
+        int imageDescription = foundExifTagInCLI(argc,argv,"--imageDescription");
+        readMetadataTIFF(fp_in, isLittleEndian, 0, startPoint);
+        if (make != 0) {
+                deleteTiffTag(startPoint, TIFF_MAKE);
+        }
+        if (model != 0) {
+                deleteTiffTag(startPoint, TIFF_MODEL);
+        }
+        if (exposure != 0) {
+                deleteTiffTag(startPoint, TIFF_EXPOSURETIME);
+        }
+        if (FNumber != 0) {
+                deleteTiffTag(startPoint, TIFF_FNUMBER);
+        }
+        if (ISR != 0) {
+                deleteTiffTag(startPoint, TIFF_ISOSPEEDRATING);
+        }
+        if (userComment != 0) {
+                deleteTiffTag(startPoint, TIFF_USERCOMENT);
+        }
+        if (latitude != 0) {
+                deleteTiffTag(startPoint, TIFF_LATITUDE);
+        }
+        if (longitude != 0) {
+                deleteTiffTag(startPoint, TIFF_LONGITUDE);
+        }
+        if (latitudeRef != 0) {
+                deleteTiffTag(startPoint, TIFF_LATITUDEREF);
+        }
+        if (longitudeRef != 0) {
+                deleteTiffTag(startPoint, TIFF_LONGITUDEREF);
+        }
+        if (datetime != 0) {
+                deleteTiffTag(startPoint, TIFF_DATETIME);
+        }
+        if (imageDescription != 0) {
+                deleteTiffTag(startPoint, TIFF_IMAGEDESCRIPTION);
+        }
+        rewriteTIFF(startPoint, filename);
+        clearTIFFInfo(startPoint);
+}
+
 int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char** argv){
         int make = foundExifTagInCLI(argc,argv,"--make");
         int model = foundExifTagInCLI(argc,argv,"--model");
@@ -2766,31 +2852,37 @@ int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int a
         readMetadataTIFF(fp_in,isLittleEndian, 0,tiffInfo);
         if (make.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(make, newNode, TIFF_MAKE, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (model.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(model, newNode, TIFF_MODEL, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (exposure.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(exposure, newNode, TIFF_EXPOSURETIME, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (FNumber.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(FNumber, newNode, TIFF_FNUMBER, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (ISR.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(ISR, newNode, TIFF_ISOSPEEDRATING, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (userComment.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(userComment, newNode, TIFF_USERCOMENT, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
@@ -2801,31 +2893,38 @@ int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int a
         }
         if (latitudeRef.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(latitudeRef, newNode, TIFF_LATITUDEREF, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (longitude.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(longitude, newNode, TIFF_LONGITUDE, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (longitudeRef.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(longitudeRef, newNode, TIFF_LONGITUDEREF, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (datetime.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(datetime, newNode, TIFF_DATETIME, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
         if (imageDescription.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
                 fillTIFFInfoFromCLI(imageDescription, newNode, TIFF_IMAGEDESCRIPTION, isLittleEndian);
                 appendTiff(tiffInfo, newNode);
         }
+        rewriteTIFF(tiffInfo, filename);
         clearTIFFInfo(tiffInfo);
 }
+
 int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
         if (!fp_in){
                 return -1;
@@ -3482,6 +3581,123 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
 	МОДУЛЬ ОБНОВЛЕНИЯ
 
 */
+int updateMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv, int isLittleEndian) {
+        if (!fp_in){
+                return -1;
+        }
+        fseek(fp_in,0,SEEK_SET);
+        CLIExifArgument make = constructorCLIExifArgument("--make");
+        CLIExifArgument model = constructorCLIExifArgument("--model");
+        CLIExifArgument exposure = constructorCLIExifArgument("--exposure");
+        CLIExifArgument FNumber = constructorCLIExifArgument("--fnumber");
+        CLIExifArgument ISR = constructorCLIExifArgument("--isr");
+        CLIExifArgument userComment = constructorCLIExifArgument("--usercomment");
+        CLIExifArgument latitude = constructorCLIExifArgument("--lat");
+        CLIExifArgument longitude = constructorCLIExifArgument("--lon");
+        CLIExifArgument latitudeRef = constructorCLIExifArgument("--latRef");
+        CLIExifArgument longitudeRef = constructorCLIExifArgument("--lonRef");
+        CLIExifArgument datetime = constructorCLIExifArgument("--dt");
+        CLIExifArgument imageDescription = constructorCLIExifArgument("--imageDescription");
+        getExifArgumentFromCLI(&make, argc, argv);
+        getExifArgumentFromCLI(&model, argc, argv);
+        getExifArgumentFromCLI(&exposure, argc, argv);
+        getExifArgumentFromCLI(&FNumber, argc, argv);
+        getExifArgumentFromCLI(&ISR, argc, argv);
+        getExifArgumentFromCLI(&userComment, argc, argv);
+        getExifArgumentFromCLI(&latitude, argc, argv);
+        getExifArgumentFromCLI(&latitudeRef, argc, argv);
+        getExifArgumentFromCLI(&longitude, argc, argv);
+        getExifArgumentFromCLI(&longitudeRef, argc, argv);
+        getExifArgumentFromCLI(&datetime, argc, argv);
+        getExifArgumentFromCLI(&imageDescription, argc, argv);
+        TIFFInfo* tiffInfo = initTiffInfo();
+        readMetadataTIFF(fp_in,isLittleEndian, 0,tiffInfo);
+        if (make.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_MAKE);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(make, newNode, TIFF_MAKE, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (model.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_MODEL);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(model, newNode, TIFF_MODEL, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (exposure.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_EXPOSURETIME);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(exposure, newNode, TIFF_EXPOSURETIME, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (FNumber.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_FNUMBER);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(FNumber, newNode, TIFF_FNUMBER, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (ISR.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_ISOSPEEDRATING);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(ISR, newNode, TIFF_ISOSPEEDRATING, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (userComment.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_USERCOMENT);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(userComment, newNode, TIFF_USERCOMENT, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (latitude.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_LATITUDE);
+                TIFFInfo* newNode = initTiffInfo();
+                fillTIFFInfoFromCLI(latitude, newNode, TIFF_LATITUDE, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (latitudeRef.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_LATITUDEREF);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(latitudeRef, newNode, TIFF_LATITUDEREF, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (longitude.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_LONGITUDE);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(longitude, newNode, TIFF_LONGITUDE, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (longitudeRef.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_LONGITUDEREF);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(longitudeRef, newNode, TIFF_LONGITUDEREF, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (datetime.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_DATETIME);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(datetime, newNode, TIFF_DATETIME, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        if (imageDescription.data != NULL) {
+                deleteTiffTag(tiffInfo, TIFF_IMAGEDESCRIPTION);
+                TIFFInfo* newNode = initTiffInfo();
+                newNode->ifdNumber = getLastIFD(tiffInfo);
+                fillTIFFInfoFromCLI(imageDescription, newNode, TIFF_IMAGEDESCRIPTION, isLittleEndian);
+                appendTiff(tiffInfo, newNode);
+        }
+        rewriteTIFF(tiffInfo, filename);
+        clearTIFFInfo(tiffInfo);
+}
 
 int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
         if (!fp_in){
