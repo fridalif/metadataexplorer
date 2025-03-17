@@ -403,8 +403,8 @@ int writeHelpMessage(char* execName) {
 	printf("--header <Заголовок> - Заголовок метаданных (комментария) при изменении, удалении и добавлении (для PNG, JPEG и GIF) \n");
 	printf("--data <Данные> - Метаданные(комментарий), которые будут добавлены или на которые будет произведена подмена (для PNG, JPEG и GIF)\n");
         printf("\nPNG\n");
-        printf("\t--width <Пиксели> - Ширина в пикселях(только в режиме --add и --update)\n");
-        printf("\t--height <Пиксели> - Высота в пикселях(только в режиме --add и --update)\n");
+        printf("\t--width <Пиксели> - Ширина в пикселях(только в режиме --add и --update) НЕБЕЗОПАСНО!\n");
+        printf("\t--height <Пиксели> - Высота в пикселях(только в режиме --add и --update) НЕБЕЗОПАСНО!\n");
         printf("\t--horizontal <Число> - Горизонтальное разрешение(только в режиме --add и --update)\n");
         printf("\t--vertical <Число> - Вертикальное разрешение(только в режиме --add и --update)\n");
         printf("\t--measure {0,1} - Единица измерения разрешения, 0 - соотношение сторон, 1 - метры(только в режиме --add и --update)\n");
@@ -3081,8 +3081,12 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
         fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = deleteMetadataPNG(fp_in, header, filename);
-        } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0){
+        } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
                 int result = deleteMetadataJPEG(fp_in, header, filename,argc,argv);
+        } else if (headerBytes[0] == 0x49 && headerBytes[1] == 0x49 && headerBytes[2] == 0x2a && headerBytes[3] == 0x00) {
+                deleteMetadataTIFF(fp_in, header, filename, argc,argv, 1);
+        } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
+                deleteMetadataTIFF(fp_in, header, filename, argc,argv, 0);
         } else {
                 printf("Неподдерживаемый формат файла\n");
                 fclose(fp_in);
@@ -3525,7 +3529,19 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         int compressionChanged = 1;
         int filterChanged = 1;
         int interlaceChanged = 1;
-
+        if (width>=0 || height>=0) {
+                char response;
+                while (response!='Y' && response!='y' && response!='N' && response!='n') {
+                        printf("Изменение размеров изображения небезопасно! Продолжить?(Y/n): ");
+                        scanf(" %c", &response);
+                }
+                if (response=='N' || response=='n') {
+                        widthChanged = -1;
+                        heightChanged = -1;
+                        width = -1;
+                        height = -1;
+                } 
+        }
         if (width < 0) {
                 printf("Изменение ширины не было произведено(указаны некорректные параметры или параметры не указаны)\n");
                 widthChanged = -1;
@@ -3846,6 +3862,10 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
                 int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
         } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
                 int result = addMetadataJPEG(fp_in,header,data, filename,argc,argv);
+        } else if (headerBytes[0] == 0x49 && headerBytes[1] == 0x49 && headerBytes[2] == 0x2a && headerBytes[3] == 0x00) {
+                addMetadataTIFF(fp_in, header, data, filename, argc,argv, 1);
+        } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
+                addMetadataTIFF(fp_in, header, data, filename, argc,argv, 0);
         } else {
                 printf("Неподдерживаемый формат файла\n");
                 fclose(fp_in);
@@ -4231,7 +4251,19 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         int compressionChanged = 1;
         int filterChanged = 1;
         int interlaceChanged = 1;
-
+        if (width>=0 || height>=0) {
+                char response;
+                while (response!='Y' && response!='y' && response!='N' && response!='n') {
+                        printf("Изменение размеров изображения небезопасно! Продолжить?(Y/n): ");
+                        scanf(" %c", &response);
+                }
+                if (response=='N' || response=='n') {
+                        widthChanged = -1;
+                        heightChanged = -1;
+                        width = -1;
+                        height = -1;
+                } 
+        }
         if (width < 0) {
                 printf("Изменение ширины не было произведено(указаны некорректные параметры или параметры не указаны)\n");
                 widthChanged = -1;
@@ -4574,6 +4606,12 @@ int updateMetadata(char* filename, char* header, char* data, int argc, char** ar
         fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
                 int result = updateMetadataPNG(fp_in, header, data, filename, argc, argv);
+        } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
+                updateMetadataJPEG(fp_in,header,data,filename,argc, argv);
+        } else if (headerBytes[0] == 0x49 && headerBytes[1] == 0x49 && headerBytes[2] == 0x2a && headerBytes[3] == 0x00) {
+                updateMetadataTIFF(fp_in, header, data, filename, argc,argv, 1);
+        } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
+                updateMetadataTIFF(fp_in, header, data, filename, argc,argv, 0);
         } else {
                 printf("Неподдерживаемый формат файла\n");
                 fclose(fp_in);
