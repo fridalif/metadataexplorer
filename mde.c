@@ -1910,6 +1910,10 @@ int readMetadataPNG(FILE* fp_in) {
     		    printf("%c",metaData[i]);
 		}
 		printf("\n");
+                printf("Текстовые данные в байтах: ");
+                for (int i = 0; i < tempRemain; i++){
+                        printf("%02x",metaData[i]);
+                }
                 if (metaData!=NULL) {
 		        free(metaData);
                         metaData = NULL;
@@ -1928,6 +1932,8 @@ int readMetadataPNG(FILE* fp_in) {
                                  (widthBytes[1] << 16) |
                                  (widthBytes[2] << 8)  |
                                  (widthBytes[3]));
+                
+                printf("Ширина изображения в байтах: %02x %02x %02x %02x\n",widthBytes[0],widthBytes[1],widthBytes[2],widthBytes[3]);
                 printf("Ширина изображения: %u\n",width);
                 unsigned char heightBytes[4] = {0};
                 fread(heightBytes, 4 ,1, fp_in);
@@ -1935,15 +1941,17 @@ int readMetadataPNG(FILE* fp_in) {
                                  (heightBytes[1] << 16) |
                                  (heightBytes[2] << 8)  |
                                  (heightBytes[3]));
-                
+                printf("Высота изображения в байтах: %02x %02x %02x %02x\n", heightBytes[0],heightBytes[1],heightBytes[2],heightBytes[3]);
                 printf("Высота изображения: %u\n",height);
                 unsigned char depth = 0;
                 fread(&depth, 1 ,1, fp_in);
                 u_int8_t dephtInt = (u_int8_t)(depth);
+                printf("Глубина цвета в байтах: %02x\n", depth);
                 printf("Глубина цвета: %u\n",dephtInt);
 
                 unsigned char colorType = 0;
                 fread(&colorType, 1 ,1, fp_in);
+                printf("Цветовой тип в байтах: %02x\n", colorType);
                 switch (colorType) {
                         case 0x00:
                                 printf("Цветовой тип: Оттенки серого\n");
@@ -1969,6 +1977,7 @@ int readMetadataPNG(FILE* fp_in) {
 
                 unsigned char compressionType = 0;
                 fread(&compressionType, 1 ,1, fp_in);
+                printf("Тип сжатия в байтах: %02x\n", compressionType);
                 switch (compressionType) {
                         case 0x00:
                                 printf("Тип сжатия: Deflate самый быстрый\n");
@@ -1989,6 +1998,7 @@ int readMetadataPNG(FILE* fp_in) {
 
                 unsigned char filterMethod = 0;
                 fread(&filterMethod, 1 ,1, fp_in);
+                printf("Метод фильрации в байтах: %02x", filterMethod);
                 switch (filterMethod) {
                         case 0x00:
                                 printf("Метод фильрации: Нет\n");
@@ -2012,6 +2022,7 @@ int readMetadataPNG(FILE* fp_in) {
 
                 unsigned char interlace = 0;
                 fread(&interlace, 1 ,1, fp_in);
+                printf("Interlace в байтах: %02x\n",interlace);
                 switch (interlace) {
                         case 0x00:
                                 printf("Interlace: Нет\n");
@@ -2036,6 +2047,7 @@ int readMetadataPNG(FILE* fp_in) {
                                  (horizontalBytes[1] << 16) |
                                  (horizontalBytes[2] << 8)  |
                                  (horizontalBytes[3]));
+                printf("Горизонтальное разрешение в байтах: %02x %02x %02x %02x\n", horizontalBytes[0], horizontalBytes[1], horizontalBytes[2], horizontalBytes[3]);
                 printf("Горизонтальное разрешение: %u\n",horizontal);
                 unsigned char verticalBytes[4] = {0};
                 fread(verticalBytes, 4 ,1, fp_in);
@@ -2043,10 +2055,11 @@ int readMetadataPNG(FILE* fp_in) {
                                  (verticalBytes[1] << 16) |
                                  (verticalBytes[2] << 8)  |
                                  (verticalBytes[3]));
+                printf("Вертикальное разрешение в байтах: %02x %02x %02x %02x\n", verticalBytes[0], verticalBytes[1], verticalBytes[2], verticalBytes[3]);
                 printf("Вертикальное разрешение: %u\n",vertical);
                 unsigned char measure = 0;
                 fread(&measure, 1 ,1, fp_in);
-
+                printf("Единицы измерения в байтах: %02x\n", measure);
                 switch (measure){
                         case 0:
                                 printf("Единицы измерения: Не указано(предположительно соотношение сторон)\n");
