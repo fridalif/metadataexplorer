@@ -119,6 +119,7 @@ void appendTiff(TIFFInfo* start, TIFFInfo* node) {
 
 void clearTIFFInfo(TIFFInfo* start) {
         TIFFInfo* temp = start;
+        int counter = 0;
         while(temp!=NULL) {
                 TIFFInfo* nextNode = temp->next;
                 if (temp->data!=NULL) {
@@ -126,6 +127,7 @@ void clearTIFFInfo(TIFFInfo* start) {
                 }
                 free(temp);
                 temp = nextNode;
+                counter++;
         }
 }
 
@@ -175,18 +177,19 @@ void printTIFFTags(TIFFInfo* tag, int isLittleEndian, const char* name) {
         char byteArray[4] = {0};
         char bigByteArray[8] = {0};
         for (int i = 0; i < tag->structuresCount; i++) {
-                if (tag->tagType == EXIF_BYTE || tag->tagType == EXIF_ASCII || tag->tagType == EXIF_SBYTE || tag->tagType == EXIF_DATETIME || tag->tagType ==EXIF_UNDEFINED) {
+                if (tag->format == EXIF_BYTE || tag->format == EXIF_ASCII || tag->format == EXIF_SBYTE || tag->format == EXIF_DATETIME || tag->format ==EXIF_UNDEFINED) {
                         if (isLittleEndian == 1) {
-                                for (int j = tag->dataLen-1; j >= 0; j--) {
+                                for (int j = 0; j < tag->dataLen; j++) {
                                         if (tag->data[j] == 0x00) {
                                                 continue;
                                         }
-                                        printf(" %c", tag->data[j]);
+                                        printf("%c", tag->data[j]);
                                 }
                         } else {
-                                printf(" %s", tag->data);
+                                for (int j = 0; j < tag->dataLen; j++) {
+                                        printf("%c", tag->data[j]);  
+                                }
                         }
-                        printf("\n");
                         break;
                 }
                 switch (tag->format) {
@@ -2793,7 +2796,6 @@ int readMetadata(char* filename, int argc, char** argv){
         printf("Неподдерживаемый формат файла\n");
         fclose(fp_in);
     }
-    fclose(fp_in);
     
     struct timespec new_times[2];
     struct timespec current_time;
