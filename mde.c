@@ -3702,11 +3702,6 @@ int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, in
         getExifArgumentFromCLI(&longitudeRef, argc, argv);
         getExifArgumentFromCLI(&datetime, argc, argv);
         getExifArgumentFromCLI(&imageDescription, argc, argv);
-        ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
-        startPoint->next = NULL;
-        startPoint->exifName = NULL;
-        startPoint->tagData = NULL;
-        startPoint->exifNumber = 0;
         int exifCounter = 0;
         unsigned char jfifBuffer[2] = {0x00,0x00};
         int hasJFIFCLI = getJFIFVersionArgument(argc, argv, jfifBuffer);
@@ -3795,88 +3790,61 @@ int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, in
                                 continue;
                         }
                         u_int16_t exifLen = (exifLenBytes[0]<<8)|exifLenBytes[1];
-                        fseek(fp_in,6,SEEK_CUR);
-                        exifCounter++;
-                        parseJPEGAPPTag(fp_in,startPoint, exifLen-4-2, exifCounter);
-                        if (make.data!=NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_MAKE);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(make,newNode, EXIF_MAKE);
-                                append(startPoint, newNode);
+                        unsigned char exifBytes[6] = {0x00};
+                        fread(exifBytes,1,6,fp_in);
+                        if (exifBytes[0]!=0x45 || exifBytes[1]!=0x78 || exifBytes[2]!=0x69 || exifBytes[3]!=0x66 || exifBytes[4]!=0x00 || exifBytes[5]!=0x00) {
+                                fwrite(&currentByte,1,1,fp_out);
+                                fseek(fp_in,-9,SEEK_CUR);
+                                continue;
                         }
-                        if (model.data!=NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_MODEL);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(model,newNode, EXIF_MODEL);
-                                append(startPoint, newNode);
+                        char* newFilenameTemp = (char*)malloc(strlen(filename)+strlen("_exif_copy")+1);
+                        strcpy(newFilenameTemp,filename);
+                        strcat(newFilenameTemp,"_exif_copy");
+                        FILE* tempFile = fopen(newFilenameTemp,"wb");
+                        unsigned char endianBytes[2];
+                        result = fread(endianBytes,1,2,fp_in);
+                        int isLittleEndian = 0;
+                        if (endianBytes[0]==0x49 && endianBytes[1]==0x49) {
+                                isLittleEndian = 1;
                         }
-                        if (exposure.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_EXPOSURE);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(exposure,newNode, EXIF_EXPOSURE);
-                                append(startPoint, newNode);
+                        fwrite(endianBytes,1,2,tempFile);
+                        for (int i = 2; i < exifLen; i++) {
+                                fread(&currentByte,1,1,fp_in);
+                                fwrite(&currentByte,1,1,tempFile);
                         }
-                        if (FNumber.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_FNUMBER);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(FNumber,newNode, EXIF_FNUMBER);
-                                append(startPoint, newNode);
+                        if (tempFile) fclose(tempFile);
+                        tempFile = fopen(newFilenameTemp,"rb");
+                        char* filenameForRemove = (char*)malloc(strlen(newFilenameTemp)+strlen("update_copy")+1);
+                        strcpy(filenameForRemove,newFilenameTemp);
+                        strcat(filenameForRemove,"update_copy");
+                        addMetadataTIFF(tempFile, NULL, NULL, newFilenameTemp, argc, argv, isLittleEndian);
+                        if (!tempFile) {
+                                tempFile = fopen(newFilenameTemp,"rb");
                         }
-                        if (ISR.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_ISOSPEEDRATING);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(ISR,newNode, EXIF_ISOSPEEDRATING);
-                                append(startPoint, newNode);
+                        tempFile = fopen(newFilenameTemp,"rb");
+                        u_int16_t tagLen = 2+6;
+                        long currentPos = ftell(fp_out);
+                        while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
+                                fwrite(&currentByte,1,1,fp_out);
+                                tagLen++;
                         }
-                        if (userComment.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_USERCOMMENT);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(userComment,newNode, EXIF_USERCOMMENT);
-                                append(startPoint, newNode);
-                        }
-                        if (latitude.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLATITUDE);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(latitude,newNode, EXIF_GPSLATITUDE);
-                                append(startPoint, newNode);
-                        }
-                        if (latitudeRef.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLATITUDEREF);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(latitudeRef,newNode, EXIF_GPSLATITUDEREF);
-                                append(startPoint, newNode);
-                        }
-                        if (longitude.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLONGITUDE);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(longitude,newNode, EXIF_GPSLONGITUDE);
-                                append(startPoint, newNode);
-                        }
-                        if (longitudeRef.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLONGITUDEREF);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(longitudeRef,newNode, EXIF_GPSLONGITUDEREF);
-                                append(startPoint, newNode);
-                        }
-                        if (datetime.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_DATETIME);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(datetime,newNode, EXIF_DATETIME);
-                                append(startPoint, newNode);
-                        }
-                        if (imageDescription.data != NULL) {
-                                deleteFromExifInfo(startPoint, EXIF_IMAGEDESCRIPTION);
-                                ExifInfo* newNode = (ExifInfo*)malloc(sizeof(ExifInfo));
-                                fillExifInfoFromCli(imageDescription,newNode, EXIF_IMAGEDESCRIPTION);
-                                append(startPoint, newNode);
-                        }
-                        rebuildExif(startPoint, fp_out); 
-                        
+                        if (tempFile) fclose(tempFile);
+                        fseek(fp_out,currentPos,SEEK_SET);
+                        unsigned char markerBytes[2] = {0xff,0xe1};
+                        fwrite(markerBytes,1,2,fp_out);
+                        fwrite(&tagLen,1,2,fp_out);
+                        unsigned char tagBytes[6] = {0x45,0x78,0x69,0x66,0x00,0x00};
+                        fwrite(tagBytes,1,6,fp_out);
+                        fseek(fp_out,-8+tagLen,SEEK_CUR);
+                        if (tempFile) fclose(tempFile);
+                        remove(newFilenameTemp);
+                        remove(filenameForRemove);
+                        free(filenameForRemove);
+                        free(newFilenameTemp);
                         continue;
                 }
                 fwrite(&currentByte,1,1,fp_out);
         }
-        clearExifInfo(startPoint);
         return 0;
 }
 
