@@ -665,7 +665,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         }
         fwrite(currentOffsetChar, 1, 4, fp_out);
         while (tempInfo != NULL) {
-                printf("Cicle\n");
                 int currentIfdNumber = tempInfo->ifdNumber;
                 TIFFInfo* tempInfo2 = tempInfo;
                 u_int16_t counter = 0;
@@ -692,7 +691,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 tagId[0] = tempInfo2->tagType & 0xFF;
                                 tagId[1] = tempInfo2->tagType >> 8 & 0xFF;
                         }
-                        printf("ID: %02x %02x\n", tagId[0],tagId[1]);
                         unsigned char tagFormat[2] = {0x00,0x00};
                         tagFormat[0] = tempInfo2->format >> 8 & 0xFF;
                         tagFormat[1] = tempInfo2->format & 0xFF;
@@ -701,7 +699,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 tagFormat[0] = tempInfo2->format & 0xFF;
                                 tagFormat[1] = tempInfo2->format >> 8 & 0xFF;
                         }
-                        printf("Format: %02x %02x\n", tagFormat[0],tagFormat[1]);
                         unsigned char tagCounter[4] = {0x00,0x00,0x00,0x00};
                         tagCounter[0] = (tempInfo2->structuresCount >> 24) & 0xFF;
                         tagCounter[1] = (tempInfo2->structuresCount >> 16) & 0xFF;
@@ -713,14 +710,12 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 tagCounter[2] = (tempInfo2->structuresCount >> 16) & 0xFF;
                                 tagCounter[3] = (tempInfo2->structuresCount >> 24) & 0xFF;
                         }
-                        printf("Counter: %02x %02x %02x %02x\n", tagCounter[0],tagCounter[1],tagCounter[2],tagCounter[3]);
                         fwrite(tagId, 1, 2, fp_out);
                         fwrite(tagFormat, 1, 2, fp_out);
                         fwrite(tagCounter, 1, 4, fp_out);
 
                         if (tempInfo2->dataLen <= 4) {
                                 
-                                printf("here!%d\n", tempInfo2->dataLen);
                                 if (isLittleEndian == 1) {
                                         fwrite(tempInfo2->data, 1, tempInfo2->dataLen, fp_out);
                                         if (tempInfo2->dataLen < 4) {
@@ -746,7 +741,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 continue;        
                         }
 
-                        printf("hereeeeee!%d\n", tempInfo2->dataLen);
                         unsigned char metadataOfsset[4] = {0x00,0x00,0x00,0x00};
                         metadataOfsset[0] = (currentCounter >> 24) & 0xFF;
                         metadataOfsset[1] = (currentCounter >> 16) & 0xFF;
