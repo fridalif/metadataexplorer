@@ -90,10 +90,11 @@ struct TIFFInfo {
         u_int32_t dataLen;
 };
 
-struct ExifInfo{
-        ExifInfo* prev;
+struct ExifInfo {
         ExifInfo* next;
         char* exifName;
+        int exifNumber;
+        int isLittleEndian;
         u_int32_t exifNameLen;
         ExifTags tagType;
         ExifData* tagData;
@@ -806,7 +807,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
 
 int append(ExifInfo* start, ExifInfo* appendingItem) {
     if (start == NULL) {
-        appendingItem->prev = NULL;
         appendingItem->next = NULL;
         return 1; 
     }
@@ -816,7 +816,6 @@ int append(ExifInfo* start, ExifInfo* appendingItem) {
         tempPointer = tempPointer->next;
     }
     tempPointer->next = appendingItem;
-    appendingItem->prev = tempPointer;
     return 1;
 }
 void clearExifData(ExifData* tagData) {
@@ -1429,7 +1428,6 @@ void fillTIFFInfoFromCLI(CLIExifArgument argument, TIFFInfo* newNode, TIFFTags t
 
 void fillExifInfoFromCli(CLIExifArgument argument, ExifInfo* newNode, ExifTags tagType) {
         newNode->next = NULL;
-        newNode->prev = NULL;
         newNode->exifName = NULL;
         newNode->exifNameLen = 0;
         newNode->tagType = tagType;
@@ -2224,7 +2222,6 @@ int parseJPEGAPPTag(FILE* fp_in, ExifInfo* startPoint, u_int16_t length) {
                 }
                 ExifInfo* tagInfo = (ExifInfo*)malloc(sizeof(ExifInfo));
                 tagInfo->next = NULL;
-                tagInfo->prev = NULL;
                 tagInfo->exifName = NULL;
                 tagInfo->tagData = NULL;
                 tagInfo->tagType = (ExifTags)tag;
@@ -2603,7 +2600,6 @@ int readMetadataJPEG(FILE* fp_in) {
         }
         ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
         startPoint->next = NULL;
-        startPoint->prev = NULL;
         startPoint->exifName = NULL;
         startPoint->tagData = NULL;
         while(fread(&currentByte,1,1,fp_in) == 1) {
@@ -2865,9 +2861,7 @@ void deleteFromExifInfo(ExifInfo* startNode, ExifTags tag) {
         while (nextNode!=NULL) {
                 if (nextNode->tagType == tag) {
                         curNode->next = nextNode->next;
-                        nextNode->next->prev = curNode;
                         nextNode->next = NULL;
-                        nextNode->prev = NULL;
                         clearExifInfo(nextNode);
                         nextNode = curNode->next;
                         continue;
@@ -2955,7 +2949,6 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
         int imageDescription = foundExifTagInCLI(argc,argv,"--imageDescription");
         ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifData));
         startPoint->next = NULL;
-        startPoint->prev = NULL;
         startPoint->exifName = NULL;
         startPoint->tagData = NULL;
         unsigned char currentByte = 0x00;
@@ -3522,7 +3515,6 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         }
         ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
         startPoint->next = NULL;
-        startPoint->prev = NULL;
         startPoint->exifName = NULL;
         startPoint->tagData = NULL;
         unsigned char jfifBuffer[2] = {0x00,0x00};
@@ -4364,7 +4356,6 @@ int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, in
         getExifArgumentFromCLI(&imageDescription, argc, argv);
         ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifInfo));
         startPoint->next = NULL;
-        startPoint->prev = NULL;
         startPoint->exifName = NULL;
         startPoint->tagData = NULL;
         unsigned char jfifBuffer[2] = {0x00,0x00};
