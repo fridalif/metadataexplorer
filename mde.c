@@ -2022,6 +2022,7 @@ int readMetadataJPEG(FILE* fp_in, char* filename) {
                         printTIFFInfo(start, isLittleEndian);
                         printf("\n");
                         clearTIFFInfo(start);
+                        if (tempFile) fclose(tempFile);
                         remove(newFilename);
                         free(newFilename);
                         continue;
@@ -2313,12 +2314,8 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
         int longitudeRef = foundExifTagInCLI(argc,argv,"--lonRef");
         int datetime = foundExifTagInCLI(argc,argv,"--dt");
         int imageDescription = foundExifTagInCLI(argc,argv,"--imageDescription");
-        ExifInfo* startPoint = (ExifInfo*)malloc(sizeof(ExifData));
-        startPoint->next = NULL;
-        startPoint->exifName = NULL;
-        startPoint->tagData = NULL;
-        startPoint->exifNumber = 0;
-        int exifCounter = 0;
+        int alreadyDeleted = -1;
+        int alreadyDeletedComment = -1;
         unsigned char currentByte = 0x00;
         fseek(fp_in, 0, SEEK_SET);
         printf("Копирование исходного файла в %s_delete_copy\n", filename);
@@ -2359,7 +2356,7 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
                                 fwrite(&currentByte,1,1,fp_out);
                                 continue;
                         }
-                        if (nextByte == 0xfe && header!=NULL) {
+                        if (nextByte == 0xfe && header!=NULL && alreadyDeletedComment==-1) {
                                 unsigned char markerLenBytes[2] = {0x00,0x00};
                                 fread(markerLenBytes,1,2,fp_in);
                                 u_int16_t markerLen = (markerLenBytes[0]<<8) | (markerLenBytes[1]);
@@ -2388,7 +2385,7 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
                                 fseek(fp_in,markerLen-strlen(header)-1,SEEK_CUR);
                                 continue;
                         }
-                        if (nextByte!=0xe1) {
+                        if (nextByte!=0xe1 || (nextByte == 0xe1 && alreadyDeleted!=-1) || (nextByte == 0xfe && (alreadyDeletedComment!=-1||header==NULL))) {
                                 fwrite(&currentByte,1,1,fp_out);
                                 fseek(fp_in,-1,SEEK_CUR);
                                 continue;
@@ -2401,46 +2398,62 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
                                 continue;
                         }
                         u_int16_t exifLen = (exifLenBytes[0]<<8)|exifLenBytes[1];
-                        fseek(fp_in,6,SEEK_CUR);
-                        exifCounter++;
-                        parseJPEGAPPTag(fp_in,startPoint, exifLen-4-2,exifCounter);
-                        if (make!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_MAKE);
+                        unsigned char exifBytes[6];
+                        result = fread(exifBytes,1,6,fp_in);
+                        if (result!=6 || !fp_in) {
+                                fseek(fp_in,-3,SEEK_CUR);
+                                fwrite(&currentByte,1,1,fp_out);
+                                continue;
                         }
-                        if (model!=0) {
-                               deleteFromExifInfo(startPoint,EXIF_MODEL); 
+                        if (exifBytes[0]!=0x45 || exifBytes[1]!=0x78 || exifBytes[2]!=0x69 || exifBytes[3]!=0x66 || exifBytes[4]!=0x00 || exifBytes[5]!=0x00) {
+                                fseek(fp_in,-6,SEEK_CUR);
+                                fwrite(&currentByte,1,1,fp_out);
+                                continue;
                         }
-                        if (exposure!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_EXPOSURE);
+                        char* newFilenameTemp = (char*)malloc(strlen(filename)+strlen("_exif_copy")+1);
+                        strcpy(newFilenameTemp,filename);
+                        strcat(newFilenameTemp,"_exif_copy");
+                        FILE* tempFile = fopen(newFilenameTemp,"wb");
+                        unsigned char endianBytes[2];
+                        result = fread(endianBytes,1,2,fp_in);
+                        int isLittleEndian = 0;
+                        if (endianBytes[0]==0x49 && endianBytes[1]==0x49) {
+                                isLittleEndian = 1;
                         }
-                        if (FNumber!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_FNUMBER);
+                        fwrite(endianBytes,1,2,tempFile);
+                        for (int i = 2; i < exifLen; i++) {
+                                fread(&currentByte,1,1,fp_in);
+                                fwrite(&currentByte,1,1,tempFile);
                         }
-                        if (ISR!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_ISOSPEEDRATING);
+                        if (tempFile) fclose(tempFile);
+                        tempFile = fopen(newFilenameTemp,"rb");
+                        char* filenameForRemove = (char*)malloc(strlen(newFilenameTemp)+strlen("delete_copy")+1);
+                        strcpy(filenameForRemove,newFilenameTemp);
+                        strcat(filenameForRemove,"delete_copy");
+                        deleteMetadataTIFF(tempFile, NULL, newFilenameTemp, argc, argv, isLittleEndian);
+                        if (!tempFile) {
+                                tempFile = fopen(newFilenameTemp,"rb");
                         }
-                        if (userComment!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_USERCOMMENT);
+                        tempFile = fopen(newFilenameTemp,"rb");
+                        u_int16_t tagLen = 2+6;
+                        long currentPos = ftell(fp_out);
+                        while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
+                                fwrite(&currentByte,1,1,fp_out);
+                                tagLen++;
                         }
-                        if (latitude!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLATITUDE);
-                        }
-                        if (latitudeRef!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLATITUDEREF);
-                        }
-                        if (longitude!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLONGITUDE);
-                        }
-                        if (longitudeRef!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_GPSLONGITUDEREF);
-                        }
-                        if (imageDescription!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_IMAGEDESCRIPTION);
-                        }
-                        if (datetime!=0) {
-                                deleteFromExifInfo(startPoint, EXIF_DATETIME);
-                        }
-                        rebuildExif(startPoint, fp_out); 
+                        if (tempFile) fclose(tempFile);
+                        fseek(fp_out,currentPos,SEEK_SET);
+                        unsigned char markerBytes[2] = {0xff,0xe1};
+                        fwrite(markerBytes,1,2,fp_out);
+                        fwrite(&tagLen,1,2,fp_out);
+                        unsigned char tagBytes[6] = {0x45,0x78,0x69,0x66,0x00,0x00};
+                        fwrite(tagBytes,1,6,fp_out);
+                        fseek(fp_out,-8+tagLen,SEEK_CUR);
+                        if (tempFile) fclose(tempFile);
+                        remove(newFilenameTemp);
+                        remove(filenameForRemove);
+                        free(filenameForRemove);
+                        free(newFilenameTemp);
                         continue;
                 }
                 fwrite(&currentByte,1,1,fp_out);
@@ -2451,7 +2464,6 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
         if (fp_out) {
                 fclose(fp_out);
         }
-        clearExifInfo(startPoint);
         free(new_filename);
         return 0;
 }
