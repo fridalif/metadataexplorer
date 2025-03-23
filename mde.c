@@ -550,6 +550,11 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         unsigned char nextIFDOffset[4] = {0x00,0x00,0x00,0x00}; 
         u_int32_t nextIFDOffsetNumber = 0;
         while (fp_in && fread(nextIFDOffset,1,4,fp_in) == 4) {
+                long currentPosNext = ftell(fp_in)-4;
+                bytesWithScipMap[currentPosNext] = 0x01;
+                bytesWithScipMap[currentPosNext+1] = 0x01;
+                bytesWithScipMap[currentPosNext+2] = 0x01;
+                bytesWithScipMap[currentPosNext+3] = 0x01;
                 if (nextIFDOffset[0] == 0x00 && nextIFDOffset[1] == 0x00 && nextIFDOffset[2] == 0x00 && nextIFDOffset[3] == 0x00) {
                         break;
                 }
