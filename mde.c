@@ -536,10 +536,11 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         unsigned char* bytesWithScipMap = (unsigned char*)malloc(bytesCount);
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename, "wb");
-        for (int i = 0; i < 2*bytesCount; i++) {
+
+        for (int i = 0; i < bytesCount; i++) {
                 bytesWithScipMap[i] = 0x00;
         }
-        
+        printf("Копирование исходного файла: Успешно\n\n");
         unsigned char byteFormat[2] = {0x00,0x00};
         fread(byteFormat,1,2,fp_in);
         int isLittleEndian = -1;
@@ -637,6 +638,8 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                         }
                 }
         }
+
+        printf("Карта построена: Успешно\n\n");
         if (!fp_in) {
                 fp_in = fopen(new_filename, "rb");
         }
@@ -662,12 +665,13 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         }
         fwrite(currentOffsetChar, 1, 4, fp_out);
         while (tempInfo != NULL) {
-                
+                printf("Cicle\n");
                 int currentIfdNumber = tempInfo->ifdNumber;
                 TIFFInfo* tempInfo2 = tempInfo;
                 u_int16_t counter = 0;
                 while (tempInfo2 != NULL && tempInfo2->ifdNumber == currentIfdNumber) {
                         counter++;
+                        tempInfo2 = tempInfo2->next;
                 }
                 unsigned char counterBytes[2] = {0x00,0x00};
                 counterBytes[0] = counter >> 8 & 0xFF;
@@ -688,13 +692,16 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 tagId[0] = tempInfo2->tagType & 0xFF;
                                 tagId[1] = tempInfo2->tagType >> 8 & 0xFF;
                         }
+                        printf("ID: %02x %02x\n", tagId[0],tagId[1]);
                         unsigned char tagFormat[2] = {0x00,0x00};
-                        tagFormat[0] = tempInfo2->dataLen >> 8 & 0xFF;
-                        tagFormat[1] = tempInfo2->dataLen & 0xFF;
+                        tagFormat[0] = tempInfo2->format >> 8 & 0xFF;
+                        tagFormat[1] = tempInfo2->format & 0xFF;
+                        
                         if (isLittleEndian == 1) {
-                                tagFormat[0] = tempInfo2->dataLen & 0xFF;
-                                tagFormat[1] = tempInfo2->dataLen >> 8 & 0xFF;
+                                tagFormat[0] = tempInfo2->format & 0xFF;
+                                tagFormat[1] = tempInfo2->format >> 8 & 0xFF;
                         }
+                        printf("Format: %02x %02x\n", tagFormat[0],tagFormat[1]);
                         unsigned char tagCounter[4] = {0x00,0x00,0x00,0x00};
                         tagCounter[0] = (tempInfo2->structuresCount >> 24) & 0xFF;
                         tagCounter[1] = (tempInfo2->structuresCount >> 16) & 0xFF;
@@ -706,12 +713,14 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 tagCounter[2] = (tempInfo2->structuresCount >> 16) & 0xFF;
                                 tagCounter[3] = (tempInfo2->structuresCount >> 24) & 0xFF;
                         }
-                        
-                        fwrite(tagFormat, 1, 2, fp_out);
+                        printf("Counter: %02x %02x %02x %02x\n", tagCounter[0],tagCounter[1],tagCounter[2],tagCounter[3]);
                         fwrite(tagId, 1, 2, fp_out);
+                        fwrite(tagFormat, 1, 2, fp_out);
                         fwrite(tagCounter, 1, 4, fp_out);
 
                         if (tempInfo2->dataLen <= 4) {
+                                
+                                printf("here!%d\n", tempInfo2->dataLen);
                                 if (isLittleEndian == 1) {
                                         fwrite(tempInfo2->data, 1, tempInfo2->dataLen, fp_out);
                                         if (tempInfo2->dataLen < 4) {
@@ -736,6 +745,8 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 tempInfo2 = tempInfo->next;
                                 continue;        
                         }
+
+                        printf("hereeeeee!%d\n", tempInfo2->dataLen);
                         unsigned char metadataOfsset[4] = {0x00,0x00,0x00,0x00};
                         metadataOfsset[0] = (currentCounter >> 24) & 0xFF;
                         metadataOfsset[1] = (currentCounter >> 16) & 0xFF;
@@ -780,14 +791,18 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 }
                 tempInfo = tempInfo2;
         }
-        
+        printf("IFD записан\n");
         currentCounter = 4;
+        if (!fp_in) {
+                fp_in = fopen(new_filename, "rb");
+        }
+        fseek(fp_in, 4, SEEK_SET);
         //Запись остального
         while (fp_in && fread(&currentChar, 1, 1, fp_in)) {
                 if (bytesWithScipMap[currentCounter] != 0x01) {
-                        currentCounter++;
                         fwrite(&currentChar, 1, 1, fp_out);
                 }
+                currentCounter++;
         }
 
         free(new_filename);
@@ -1209,16 +1224,12 @@ void fillTIFFInfoFromCLI(CLIExifArgument argument, TIFFInfo* newNode, TIFFTags t
                 case EXIF_ASCII:
                 case EXIF_SBYTE:
                 case EXIF_UNDEFINED:
-                        printf("here1\n");
                         newNode->data = argument.data;
                         newNode->dataLen = strlen(argument.data);
                         newNode->structuresCount = strlen(argument.data);
-                        printf("here2\n");
                         if (isLittleEndian == 1) {
                                 reversedBytes = (char*)malloc(newNode->dataLen);
-                                printf("here4\n");
                                 for (int j = newNode->dataLen-1; j >= 0; j--) {
-                                        printf("here%d\n", j);
                                         reversedBytes[newNode->dataLen-1-j] = newNode->data[j];
                                 }
                                 newNode->data = reversedBytes;
