@@ -1,4 +1,4 @@
-# Metadata Explorer v1.0.1
+# Metadata Explorer v1.0.2
 ```plaintext
 
 

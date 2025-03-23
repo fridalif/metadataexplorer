@@ -512,7 +512,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 return 1;
         }
         strcpy(new_filename, filename);
-        strcpy(new_filename, operation);
+        strcat(new_filename, operation);
         strcat(new_filename, "_copy");
         fp_in = fopen(filename, "rb");
         FILE* fp_out = fopen(new_filename, "wb");
@@ -545,9 +545,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 isLittleEndian = 1;
         }
         fwrite(startBytes,1,4,fp_out);
-        unsigned char firstIFDOffsetBytes[4] = {0x00};
-        fread(firstIFDOffsetBytes,1,4,fp_in);
-        fwrite(firstIFDOffsetBytes,1,4,fp_out);
         unsigned char nextIFDOffsetBytes[4] = {0x00, 0x00, 0x00, 0x00};
         while (fread(nextIFDOffsetBytes,1,4,fp_in) == 4) {
                 if (nextIFDOffsetBytes[0] == 0x00 && nextIFDOffsetBytes[1] == 0x00 && nextIFDOffsetBytes[2] == 0x00 && nextIFDOffsetBytes[3] == 0x00) {
@@ -557,9 +554,11 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 if (isLittleEndian == 1) {
                         nextIFDOffset = (nextIFDOffsetBytes[3]<<24)|(nextIFDOffsetBytes[2]<<16)|(nextIFDOffsetBytes[1]<<8)|nextIFDOffsetBytes[0];
                 }
+                printf("nextIFDOffset: %d\n", nextIFDOffset);
                 fseek(fp_in,nextIFDOffset,SEEK_SET);
                 unsigned char tagCounter[2] = {0x00,0x00};
                 int result = fread(tagCounter,1,2,fp_in);
+                printf("tagCounter: %02x %02x\n", tagCounter[0], tagCounter[1]);
                 if (result < 2 || !fp_in) {
                         break;
                 }
@@ -572,6 +571,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 for (u_int16_t i = 0; i < tagCount; i++) {
                         unsigned char readTag[2] = {0x00,0x00};
                         result = fread(readTag,1,2,fp_in);
+                        printf("%d readTag: %02x %02x\n", i,readTag[0], readTag[1]);
                         if (result < 2 || !fp_in) {
                                 continue;
                         }
@@ -582,6 +582,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                         
                         unsigned char tagFormat[2] = {0x00,0x00};
                         result = fread(tagFormat,1,2,fp_in);
+                        printf("%d tagFormat: %02x %02x\n", i,tagFormat[0], tagFormat[1]);
                         if (result < 2 || !fp_in) {
                                 continue;
                         }
@@ -591,6 +592,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                         }
                         unsigned char tagLength[4] = {0x00,0x00,0x00,0x00};
                         result = fread(tagLength,1,4,fp_in);
+                        printf("%d tagLength: %02x %02x %02x %02x\n", i,tagLength[0], tagLength[1], tagLength[2], tagLength[3]);
                         if (result < 4 || !fp_in) {
                                 continue;
                         }
@@ -629,6 +631,8 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 continue;
                         }
                         ifdLen += 12;
+                        printf("+12\n");
+                        printf("%d resultLenght: %d\n", i, resultLenght);
                         unsigned char* data = (unsigned char*)malloc(resultLenght);
                         if (resultLenght <= 4) {
                                 result = fread(data,1,resultLenght,fp_in);
@@ -637,7 +641,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                 }
                         } else {
                                ifdLen+=resultLenght;
-                               
+                               printf("+%d\n",resultLenght);
                                unsigned char offsetBytes[4] = {0x00};
                                result = fread(offsetBytes,1,4,fp_in);
                                long currentPos = ftell(fp_in);
@@ -657,6 +661,8 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                
                 }
                 fseek(fp_in,ifdStart+ifdLen,SEEK_SET);
+                printf("ifdLen: %ld\n",ifdLen);
+                printf("ifdStart: %ld\n",ifdStart);
         }
         u_int32_t offset = 8;
         TIFFInfo* temp = start;
@@ -783,7 +789,11 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 fwrite(nullBytes,1,4,fp_out);
         }
         unsigned char otherBytes = 0x00;
+        if (fread(&otherBytes,1,1,fp_in) != 1) {
+                printf("here2!\n");
+        }
         while (fp_in && fread(&otherBytes,1,1,fp_in) == 1) {
+                printf("here!\n");
                 fwrite(&otherBytes,1,1,fp_out);
         }
         free(new_filename);
@@ -1204,15 +1214,24 @@ void fillTIFFInfoFromCLI(CLIExifArgument argument, TIFFInfo* newNode, TIFFTags t
                 case EXIF_ASCII:
                 case EXIF_SBYTE:
                 case EXIF_UNDEFINED:
+                        printf("here1\n");
                         newNode->data = argument.data;
                         newNode->dataLen = strlen(argument.data);
                         newNode->structuresCount = strlen(argument.data);
+                        printf("here2\n");
                         if (isLittleEndian == 1) {
                                 reversedBytes = (char*)malloc(newNode->dataLen);
-                                for (int j = newNode->dataLen-1; j >= 0; j++) {
+                                printf("here4\n");
+                                for (int j = newNode->dataLen-1; j >= 0; j--) {
+                                        printf("here%d\n", j);
                                         reversedBytes[newNode->dataLen-1-j] = newNode->data[j];
                                 }
-                                free(newNode->data);
+                                newNode->data = reversedBytes;
+                        } else {
+                                reversedBytes = (char*)malloc(newNode->dataLen);
+                                for (int j = newNode->dataLen-1; j >= 0; j--) {
+                                        reversedBytes[newNode->dataLen-1-j] = newNode->data[newNode->dataLen-1-j];
+                                }
                                 newNode->data = reversedBytes;
                         }
                         break;
@@ -2546,8 +2565,6 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian, int withClear, TIFFInfo* s
                                         fseek(fp_in,4-resultLenght,SEEK_CUR);
                                 }
                         } else {
-                               ifdLen+=resultLenght;
-                               
                                unsigned char offsetBytes[4] = {0x00};
                                result = fread(offsetBytes,1,4,fp_in);
                                long currentPos = ftell(fp_in);
