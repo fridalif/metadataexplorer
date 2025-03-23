@@ -521,8 +521,10 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 free(new_filename);
                 return 1;
         }
+        long bytesCount = 0;
         unsigned char currentChar = 0x00;
         while (fread(&currentChar,1,1,fp_in) == 1 && fp_in) {
+                bytesCount++;
                 fwrite(&currentChar,1,1,fp_out);
         }
         if (fp_in) {
@@ -531,272 +533,115 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         if (fp_out) {
                 fclose(fp_out);
         }
+        unsigned char* bytesWithScipMap = (unsigned char*)malloc(bytesCount);
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename, "wb");
-        if (!fp_in || !fp_out) {
-                printf("Ошибка: не удалось открыть файлы при изменении\n");
-                free(new_filename);
-                return 1;
+        for (int i = 0; i < 2*bytesCount; i++) {
+                bytesWithScipMap[i] = 0x00;
         }
-        int isLittleEndian = 0;
-        unsigned char startBytes[4] = {0x00};
-        fread(startBytes,1,4,fp_in);
-        if (startBytes[0] == 0x49 && startBytes[1] == 0x49 && startBytes[2] == 0x2A && startBytes[3] == 0x00) {
+        
+        unsigned char byteFormat[2] = {0x00,0x00};
+        fread(byteFormat,1,2,fp_in);
+        int isLittleEndian = -1;
+        if (byteFormat[0] == 0x49 && byteFormat[1] == 0x49) {
                 isLittleEndian = 1;
         }
-        fwrite(startBytes,1,4,fp_out);
-        unsigned char nextIFDOffsetBytes[4] = {0x00, 0x00, 0x00, 0x00};
-        while (fread(nextIFDOffsetBytes,1,4,fp_in) == 4) {
-                if (nextIFDOffsetBytes[0] == 0x00 && nextIFDOffsetBytes[1] == 0x00 && nextIFDOffsetBytes[2] == 0x00 && nextIFDOffsetBytes[3] == 0x00) {
+        fseek(fp_in,2,SEEK_CUR);
+        unsigned char nextIFDOffset[4] = {0x00,0x00,0x00,0x00}; 
+        u_int32_t nextIFDOffsetNumber = 0;
+        while (fp_in && fread(nextIFDOffset,1,4,fp_in) == 4) {
+                if (nextIFDOffset[0] == 0x00 && nextIFDOffset[1] == 0x00 && nextIFDOffset[2] == 0x00 && nextIFDOffset[3] == 0x00) {
                         break;
                 }
-                u_int32_t nextIFDOffset = (nextIFDOffsetBytes[0]<<24)|(nextIFDOffsetBytes[1]<<16)|(nextIFDOffsetBytes[2]<<8)|nextIFDOffsetBytes[3];
+                nextIFDOffsetNumber = (nextIFDOffset[0]<<24)|(nextIFDOffset[1]<<16)|(nextIFDOffset[2]<<8)|nextIFDOffset[3];
                 if (isLittleEndian == 1) {
-                        nextIFDOffset = (nextIFDOffsetBytes[3]<<24)|(nextIFDOffsetBytes[2]<<16)|(nextIFDOffsetBytes[1]<<8)|nextIFDOffsetBytes[0];
+                        nextIFDOffsetNumber = (nextIFDOffset[3]<<24)|(nextIFDOffset[2]<<16)|(nextIFDOffset[1]<<8)|nextIFDOffset[0];
                 }
-                printf("nextIFDOffset: %d\n", nextIFDOffset);
-                fseek(fp_in,nextIFDOffset,SEEK_SET);
-                unsigned char tagCounter[2] = {0x00,0x00};
-                int result = fread(tagCounter,1,2,fp_in);
-                printf("tagCounter: %02x %02x\n", tagCounter[0], tagCounter[1]);
-                if (result < 2 || !fp_in) {
-                        break;
-                }
-                u_int16_t tagCount = (tagCounter[0]<<8)|tagCounter[1];
+                fseek(fp_in,nextIFDOffsetNumber,SEEK_SET);
+                unsigned char tagCounterBytes[2] = {0x00,0x00};
+                bytesWithScipMap[nextIFDOffsetNumber] = 0x01;
+                bytesWithScipMap[nextIFDOffsetNumber+1] = 0x00;
+                fread(tagCounterBytes,1,2,fp_in);
+                u_int16_t tagCounter = (tagCounterBytes[0]<<8)|tagCounterBytes[1];
                 if (isLittleEndian == 1) {
-                        tagCount = (tagCounter[1]<<8)|tagCounter[0];
+                        tagCounter = (tagCounterBytes[1]<<8)|tagCounterBytes[0];
                 }
-                long ifdLen = 0;
-                long ifdStart = ftell(fp_in);
-                for (u_int16_t i = 0; i < tagCount; i++) {
-                        unsigned char readTag[2] = {0x00,0x00};
-                        result = fread(readTag,1,2,fp_in);
-                        printf("%d readTag: %02x %02x\n", i,readTag[0], readTag[1]);
-                        if (result < 2 || !fp_in) {
-                                continue;
-                        }
-                        u_int16_t tag = (readTag[0]<<8)|readTag[1];
+                for (u_int16_t i = 0; i < tagCounter; i++) {
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+2] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+3] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+4] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+5] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+6] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+7] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+8] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+9] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+10] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+11] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+12] = 0x01;
+                        bytesWithScipMap[nextIFDOffsetNumber+12*i+13] = 0x01;
+                        fseek(fp_in,2,SEEK_CUR);
+                        unsigned char tagFormatBytes[2] = {0x00,0x00};
+                        fread(tagFormatBytes,1,2,fp_in);
+                        ExifFormats tagFormat = (ExifFormats)(tagFormatBytes[0]<<8|tagFormatBytes[1]);
                         if (isLittleEndian == 1) {
-                                tag = (readTag[1]<<8)|readTag[0];
+                                tagFormat = (ExifFormats)(tagFormatBytes[1]<<8|tagFormatBytes[0]);
                         }
-                        
-                        unsigned char tagFormat[2] = {0x00,0x00};
-                        result = fread(tagFormat,1,2,fp_in);
-                        printf("%d tagFormat: %02x %02x\n", i,tagFormat[0], tagFormat[1]);
-                        if (result < 2 || !fp_in) {
-                                continue;
-                        }
-                        u_int16_t format = (tagFormat[0]<<8)|tagFormat[1];
+                        unsigned char tagCountBytes[4] = {0x00,0x00,0x00,0x00};
+                        fread(tagCountBytes,1,4,fp_in);
+                        u_int32_t tagCount = (tagCountBytes[0]<<24)|(tagCountBytes[1]<<16)|(tagCountBytes[2]<<8)|tagCountBytes[3];
                         if (isLittleEndian == 1) {
-                                format = (tagFormat[1]<<8)|tagFormat[0];
+                                tagCount = (tagCountBytes[3]<<24)|(tagCountBytes[2]<<16)|(tagCountBytes[1]<<8)|tagCountBytes[0];
                         }
-                        unsigned char tagLength[4] = {0x00,0x00,0x00,0x00};
-                        result = fread(tagLength,1,4,fp_in);
-                        printf("%d tagLength: %02x %02x %02x %02x\n", i,tagLength[0], tagLength[1], tagLength[2], tagLength[3]);
-                        if (result < 4 || !fp_in) {
-                                continue;
-                        }
-                        u_int32_t length = (tagLength[0]<<24)|(tagLength[1]<<16)|(tagLength[2]<<8)|tagLength[3];
-                        
-                        if (isLittleEndian == 1) {
-                                length = (tagLength[3]<<24)|(tagLength[2]<<16)|(tagLength[1]<<8)|tagLength[0];
-                        }
-                        u_int32_t resultLenght = length;
-                        switch (format) {
-                                case EXIF_ASCII:
+                        u_int32_t resultLen = 0;
+                        switch (tagFormat) {
                                 case EXIF_BYTE:
+                                case EXIF_ASCII:
                                 case EXIF_UNDEFINED:
                                 case EXIF_SBYTE:
-                                case EXIF_DATETIME:
+                                        resultLen = tagCount;
                                         break;
                                 case EXIF_SHORT:
                                 case EXIF_SSHORT:
-                                        resultLenght = length*2;
+                                        resultLen = tagCount*2;
                                         break;
                                 case EXIF_LONG:
                                 case EXIF_SLONG:
                                 case EXIF_FLOAT:
-                                        resultLenght = length*4;
+                                        resultLen = tagCount*4;
                                         break;
                                 case EXIF_RATIONAL:
                                 case EXIF_SRATIONAL:
                                 case EXIF_DOUBLE:
-                                        resultLenght = length*8;
+                                        resultLen = tagCount*8;
                                         break;
                                 default:
-                                        resultLenght = 0;
                                         break;
                         }
-                        if (resultLenght == 0) {
+                        if (resultLen <= 4) {
+                                fseek(fp_in,4,SEEK_CUR);
                                 continue;
                         }
-                        ifdLen += 12;
-                        printf("+12\n");
-                        printf("%d resultLenght: %d\n", i, resultLenght);
-                        unsigned char* data = (unsigned char*)malloc(resultLenght);
-                        if (resultLenght <= 4) {
-                                result = fread(data,1,resultLenght,fp_in);
-                                if (resultLenght<4) {
-                                        fseek(fp_in,4-resultLenght,SEEK_CUR);
-                                }
-                        } else {
-                               ifdLen+=resultLenght;
-                               printf("+%d\n",resultLenght);
-                               unsigned char offsetBytes[4] = {0x00};
-                               result = fread(offsetBytes,1,4,fp_in);
-                               long currentPos = ftell(fp_in);
-                               u_int32_t offset = (offsetBytes[0]<<24)|(offsetBytes[1]<<16)|(offsetBytes[2]<<8)|offsetBytes[3];
-                               if (isLittleEndian == 1) {
-                                       offset = (offsetBytes[3]<<24)|(offsetBytes[2]<<16)|(offsetBytes[1]<<8)|offsetBytes[0];
-                               }
-                               fseek(fp_in,offset,SEEK_SET);
-                               result = fread(data,1,resultLenght,fp_in);
-                               fseek(fp_in,currentPos,SEEK_SET);
-                        }
-                        if (result < resultLenght || !fp_in) {
-                                free(data);
-                                continue;
-                        }
-                        free(data);
-                               
-                }
-                fseek(fp_in,ifdStart+ifdLen,SEEK_SET);
-                printf("ifdLen: %ld\n",ifdLen);
-                printf("ifdStart: %ld\n",ifdStart);
-        }
-        u_int32_t offset = 8;
-        TIFFInfo* temp = start;
-        int currentIFD = 0;
-        while (temp!=NULL) {
-                if (temp->data == NULL) {
-                        temp = temp->next;
-                        continue;
-                }
-                currentIFD = temp->ifdNumber;
-                u_int16_t counterIFD = getIFDInnerCount(temp, currentIFD);
-                unsigned char counterIFDBytes[2] = {counterIFD>>8 & 0xff,counterIFD & 0xff};
-                if (isLittleEndian == 1) {
-                        counterIFDBytes[0] = counterIFD & 0xff;
-                        counterIFDBytes[1] = counterIFD>>8 & 0xff;
-                }
-                fwrite(counterIFDBytes,1,2,fp_out);
-                offset+=2;
-                u_int32_t innerOffset = offset;
-                TIFFInfo* newTemp = temp;
-                //offsetCount
-                while (newTemp!=NULL) {
-                        if (newTemp->ifdNumber>currentIFD) {
-                                break;
-                        }
-                        if (newTemp->data == NULL) {
-                                newTemp = newTemp->next;
-                                continue;
-                        }
-                        offset+=12;
-                        innerOffset+=12;
-                        newTemp = newTemp->next;
-                }
-                newTemp = temp;
-                //ifd
-                while (newTemp!=NULL) {
-                        if (newTemp->ifdNumber>currentIFD) {
-                                break;
-                        }
-                        if (newTemp->data == NULL) {
-                                newTemp = newTemp->next;
-                                continue;
-                        }
-                        unsigned char tagTypeBytes[2] = {newTemp->tagType>>8 & 0xff,newTemp->tagType & 0xff};
-                        if (isLittleEndian == 1) {
-                                tagTypeBytes[0] = newTemp->tagType & 0xff;
-                                tagTypeBytes[1] = newTemp->tagType>>8 & 0xff;
-                        }
-                        fwrite(tagTypeBytes,1,2,fp_out);
-                        unsigned char formatBytes[2] = {newTemp->format>>8 & 0xff,newTemp->format & 0xff};
-                        if (isLittleEndian == 1) {
-                                formatBytes[0] = newTemp->format & 0xff;
-                                formatBytes[1] = newTemp->format>>8 & 0xff;
-                        }
-                        fwrite(formatBytes,1,2,fp_out);
-                        unsigned char countBytes[4] = {newTemp->structuresCount>>24 & 0xff,newTemp->structuresCount>>16 & 0xff,newTemp->structuresCount>>8 & 0xff,newTemp->structuresCount & 0xff};
-                        if (isLittleEndian == 1) {
-                                countBytes[0] = newTemp->structuresCount & 0xff;
-                                countBytes[1] = newTemp->structuresCount>>8 & 0xff;
-                                countBytes[2] = newTemp->structuresCount>>16 & 0xff;
-                                countBytes[3] = newTemp->structuresCount>>24 & 0xff;
-                        }
-                        fwrite(countBytes,1,4,fp_out);
-                        unsigned char offsetBytes[4] = {0x00};
-                        if (newTemp->dataLen <= 4) {
-                                offsetBytes[0] = newTemp->dataLen>>24 & 0xff;
-                                offsetBytes[1] = newTemp->dataLen>>16 & 0xff;
-                                offsetBytes[2] = newTemp->dataLen>>8 & 0xff;
-                                offsetBytes[3] = newTemp->dataLen & 0xff;
-                                if (isLittleEndian == 1) {
-                                        offsetBytes[0] = newTemp->dataLen & 0xff;
-                                        offsetBytes[1] = newTemp->dataLen>>8 & 0xff;
-                                        offsetBytes[2] = newTemp->dataLen>>16 & 0xff;
-                                        offsetBytes[3] = newTemp->dataLen>>24 & 0xff;
-                                }
-                        } else {
-                                offsetBytes[0] = innerOffset>>24 & 0xff;
-                                offsetBytes[1] = innerOffset>>16 & 0xff;
-                                offsetBytes[2] = innerOffset>>8 & 0xff;
-                                offsetBytes[3] = innerOffset & 0xff;
-                                if (isLittleEndian == 1) {
-                                        offsetBytes[0] = innerOffset & 0xff;
-                                        offsetBytes[1] = innerOffset>>8 & 0xff;
-                                        offsetBytes[2] = innerOffset>>16 & 0xff;
-                                        offsetBytes[3] = innerOffset>>24 & 0xff;
-                                }
-                                innerOffset+=newTemp->dataLen;
-                                offset+=newTemp->dataLen;
-                        }
-                        fwrite(offsetBytes,1,4,fp_out);
-                        newTemp = newTemp->next;
-                }
-                newTemp = temp;
-                while (newTemp!=NULL) {
-                        if (newTemp->ifdNumber>currentIFD) {
-                                currentIFD = newTemp->ifdNumber;
-                                break;
-                        }
-                        if (newTemp->data == NULL || newTemp->dataLen <= 4) {
-                                newTemp = newTemp->next;
-                                continue;
-                        }
-                        fwrite(newTemp->data,1,newTemp->dataLen,fp_out);
-                        newTemp = newTemp->next;
-                }
-                if (currentIFD != temp->ifdNumber) {
                         unsigned char offsetBytes[4] = {0x00,0x00,0x00,0x00};
-                        offsetBytes[0] = innerOffset>>24 & 0xff;
-                        offsetBytes[1] = innerOffset>>16 & 0xff;
-                        offsetBytes[2] = innerOffset>>8 & 0xff;
-                        offsetBytes[3] = innerOffset & 0xff;
+                        fread(offsetBytes,1,4,fp_in);
+                        u_int32_t offset = (offsetBytes[0]<<24)|(offsetBytes[1]<<16)|(offsetBytes[2]<<8)|offsetBytes[3];
                         if (isLittleEndian == 1) {
-                                offsetBytes[0] = innerOffset & 0xff;
-                                offsetBytes[1] = innerOffset>>8 & 0xff;
-                                offsetBytes[2] = innerOffset>>16 & 0xff;
-                                offsetBytes[3] = innerOffset>>24 & 0xff;
+                                offset = (offsetBytes[3]<<24)|(offsetBytes[2]<<16)|(offsetBytes[1]<<8)|offsetBytes[0];
                         }
-                        fwrite(offsetBytes,1,4,fp_out);
+                        for (int j = 0; j < resultLen; j++) {
+                                bytesWithScipMap[offset+j] = 0x01;
+                        }
                 }
-                temp = temp->next;
         }
-        if (currentIFD != 0) {
-                unsigned char nullBytes[4] = {0x00,0x00,0x00,0x00};
-                fwrite(nullBytes,1,4,fp_out);
+
+        
+        
+        if (!fp_in) {
+                fp_in = fopen(new_filename, "rb");
         }
-        unsigned char otherBytes = 0x00;
-        if (fread(&otherBytes,1,1,fp_in) != 1) {
-                printf("here2!\n");
-        }
-        while (fp_in && fread(&otherBytes,1,1,fp_in) == 1) {
-                printf("here!\n");
-                fwrite(&otherBytes,1,1,fp_out);
-        }
+        fseek(fp_in, 0, SEEK_SET);
+
         free(new_filename);
+        free(bytesWithScipMap);
         return 0;
 }
 
