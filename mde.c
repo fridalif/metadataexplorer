@@ -637,13 +637,158 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                         }
                 }
         }
-
-        
-        
         if (!fp_in) {
                 fp_in = fopen(new_filename, "rb");
         }
         fseek(fp_in, 0, SEEK_SET);
+        unsigned char magicBytes[4] = {0x00,0x00,0x00,0x00};
+        fread(magicBytes, 1, 4, fp_in);
+        fwrite(magicBytes, 1, 4, fp_out);
+        u_int32_t currentCounter = 4;
+        
+        //Запись нового IFD
+        TIFFInfo* tempInfo = start->next;
+        unsigned char currentOffsetChar[4] = {0x00,0x00,0x00,0x00};
+        currentCounter += 4;
+        currentOffsetChar[0] = currentCounter >> 24 & 0xFF;
+        currentOffsetChar[1] = currentCounter >> 16 & 0xFF;
+        currentOffsetChar[2] = currentCounter >> 8 & 0xFF;
+        currentOffsetChar[3] = currentCounter & 0xFF;
+        if (isLittleEndian == 1) {
+                currentOffsetChar[0] = currentCounter & 0xFF;
+                currentOffsetChar[1] = currentCounter >> 8 & 0xFF;
+                currentOffsetChar[2] = currentCounter >> 16 & 0xFF;
+                currentOffsetChar[3] = currentCounter >> 24 & 0xFF;
+        }
+        fwrite(currentOffsetChar, 1, 4, fp_out);
+        while (tempInfo != NULL) {
+                
+                int currentIfdNumber = tempInfo->ifdNumber;
+                TIFFInfo* tempInfo2 = tempInfo;
+                u_int16_t counter = 0;
+                while (tempInfo2 != NULL && tempInfo2->ifdNumber == currentIfdNumber) {
+                        counter++;
+                }
+                unsigned char counterBytes[2] = {0x00,0x00};
+                counterBytes[0] = counter >> 8 & 0xFF;
+                counterBytes[1] = counter & 0xFF;
+                if (isLittleEndian == 1) {
+                        counterBytes[0] = counter & 0xFF;
+                        counterBytes[1] = counter >> 8 & 0xFF;
+                }
+                fwrite(counterBytes, 1, 2, fp_out);
+                currentCounter += 2;
+                tempInfo2 = tempInfo;
+                currentCounter += 12*counter+4;
+                while (tempInfo2 != NULL && tempInfo2->ifdNumber == currentIfdNumber) {
+                        unsigned char tagId[2] = {0x00,0x00};
+                        tagId[0] = tempInfo2->tagType >> 8 & 0xFF;
+                        tagId[1] = tempInfo2->tagType & 0xFF;
+                        if (isLittleEndian == 1) {
+                                tagId[0] = tempInfo2->tagType & 0xFF;
+                                tagId[1] = tempInfo2->tagType >> 8 & 0xFF;
+                        }
+                        unsigned char tagFormat[2] = {0x00,0x00};
+                        tagFormat[0] = tempInfo2->dataLen >> 8 & 0xFF;
+                        tagFormat[1] = tempInfo2->dataLen & 0xFF;
+                        if (isLittleEndian == 1) {
+                                tagFormat[0] = tempInfo2->dataLen & 0xFF;
+                                tagFormat[1] = tempInfo2->dataLen >> 8 & 0xFF;
+                        }
+                        unsigned char tagCounter[4] = {0x00,0x00,0x00,0x00};
+                        tagCounter[0] = (tempInfo2->structuresCount >> 24) & 0xFF;
+                        tagCounter[1] = (tempInfo2->structuresCount >> 16) & 0xFF;
+                        tagCounter[2] = (tempInfo2->structuresCount >> 8) & 0xFF;
+                        tagCounter[3] = tempInfo2->structuresCount & 0xFF;
+                        if (isLittleEndian == 1) {
+                                tagCounter[0] = tempInfo2->structuresCount & 0xFF;
+                                tagCounter[1] = (tempInfo2->structuresCount >> 8) & 0xFF;
+                                tagCounter[2] = (tempInfo2->structuresCount >> 16) & 0xFF;
+                                tagCounter[3] = (tempInfo2->structuresCount >> 24) & 0xFF;
+                        }
+                        
+                        fwrite(tagFormat, 1, 2, fp_out);
+                        fwrite(tagId, 1, 2, fp_out);
+                        fwrite(tagCounter, 1, 4, fp_out);
+
+                        if (tempInfo2->dataLen <= 4) {
+                                if (isLittleEndian == 1) {
+                                        fwrite(tempInfo2->data, 1, tempInfo2->dataLen, fp_out);
+                                        if (tempInfo2->dataLen < 4) {
+                                                unsigned char* nullBytesData = (unsigned char*)malloc(4-tempInfo2->dataLen);
+                                                for (int i = 0; i < 4-tempInfo2->dataLen; i++) {
+                                                        nullBytesData[i] = 0x00;
+                                                }
+                                                fwrite(nullBytesData, 1, 4-tempInfo2->dataLen, fp_out);
+                                                free(nullBytesData);
+                                        }
+                                } else {
+                                        if (tempInfo2->dataLen < 4) {
+                                                unsigned char* nullBytesData = (unsigned char*)malloc(4-tempInfo2->dataLen);
+                                                for (int i = 0; i < 4-tempInfo2->dataLen; i++) {
+                                                        nullBytesData[i] = 0x00;
+                                                }
+                                                fwrite(nullBytesData, 1, 4-tempInfo2->dataLen, fp_out);
+                                                free(nullBytesData);
+                                        }
+                                        fwrite(tempInfo2->data, 1, tempInfo2->dataLen, fp_out);   
+                                }
+                                tempInfo2 = tempInfo->next;
+                                continue;        
+                        }
+                        unsigned char metadataOfsset[4] = {0x00,0x00,0x00,0x00};
+                        metadataOfsset[0] = (currentCounter >> 24) & 0xFF;
+                        metadataOfsset[1] = (currentCounter >> 16) & 0xFF;
+                        metadataOfsset[2] = (currentCounter >> 8) & 0xFF;
+                        metadataOfsset[3] = currentCounter & 0xFF;
+                        if (isLittleEndian == 1) {
+                                metadataOfsset[0] = currentCounter & 0xFF;
+                                metadataOfsset[1] = (currentCounter >> 8) & 0xFF;
+                                metadataOfsset[2] = (currentCounter >> 16) & 0xFF;
+                                metadataOfsset[3] = (currentCounter >> 24) & 0xFF;
+                        }
+                        fwrite(metadataOfsset, 1, 4, fp_out);
+                        currentCounter += tempInfo2->dataLen;
+                        tempInfo2 = tempInfo->next;       
+                }
+                if (tempInfo2 == NULL) {
+                        unsigned char nullBytes[4] = {0x00,0x00,0x00,0x00};
+                        fwrite(nullBytes, 1, 4, fp_out);
+                } else {
+                        unsigned char nextOffset[4] = {0x00,0x00,0x00,0x00};
+                        nextOffset[0] = (currentCounter >> 24) & 0xFF;
+                        nextOffset[1] = (currentCounter >> 16) & 0xFF;
+                        nextOffset[2] = (currentCounter >> 8) & 0xFF;
+                        nextOffset[3] = currentCounter & 0xFF;
+                        if (isLittleEndian == 1) {
+                                nextOffset[0] = currentCounter & 0xFF;
+                                nextOffset[1] = (currentCounter >> 8) & 0xFF;
+                                nextOffset[2] = (currentCounter >> 16) & 0xFF;
+                                nextOffset[3] = (currentCounter >> 24) & 0xFF;
+                        }
+                        fwrite(nextOffset, 1, 4, fp_out);
+                }
+                tempInfo2 = tempInfo;
+                while (tempInfo2 != NULL && tempInfo2->ifdNumber == currentIfdNumber) {
+                        if (tempInfo2->dataLen > 4) {
+                                fwrite(tempInfo2->data, 1, tempInfo2->dataLen, fp_out);
+                        }
+                        tempInfo2 = tempInfo2->next;
+                }
+                if (tempInfo2 == NULL) {
+                        break;
+                }
+                tempInfo = tempInfo2;
+        }
+        
+        currentCounter = 4;
+        //Запись остального
+        while (fp_in && fread(&currentChar, 1, 1, fp_in)) {
+                if (bytesWithScipMap[currentCounter] != 0x01) {
+                        currentCounter++;
+                        fwrite(&currentChar, 1, 1, fp_out);
+                }
+        }
 
         free(new_filename);
         free(bytesWithScipMap);
