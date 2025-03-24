@@ -2369,9 +2369,11 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
                                         fseek(fp_in,-3,SEEK_CUR);
                                         continue;
                                 }
-                                unsigned char* headerFromFile = (unsigned char*)malloc(strlen(header));
+                                unsigned char* headerFromFile = (unsigned char*)malloc(strlen(header)+1);
                                 fread(headerFromFile,1,strlen(header),fp_in);
+                                headerFromFile[strlen(header)] = 0x00;
                                 if (strcmp(headerFromFile,header)!=0) {
+                                        printf("Хедеры не равны\n");
                                         free(headerFromFile);
                                         fwrite(&currentByte,1,1,fp_out);
                                         fseek(fp_in,-3-strlen(header),SEEK_CUR);
