@@ -2474,6 +2474,7 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
         if (header == NULL) {
                 printf("Ошибка: Не указан заголовок\n");
                 if (fp_in) fclose(fp_in);
+                return 1;
         }
         int foundMetadata = -1;
         unsigned char currentByte = 0x00;
