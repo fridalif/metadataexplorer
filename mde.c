@@ -3360,7 +3360,8 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                                 strcpy(newMetadata + 4, header);
                                 newMetadata[4 + strlen(header)] = 0x00;
                                 strcpy(newMetadata + 4 + strlen(header) + 1, data);
-                                newCRC32 = crc32b(newMetadata, length);
+                                
+                                newCRC32 = crc32b(newMetadata, length+4);
                                 unsigned char newCRC32CharTXT[4] = {0};
                                 newCRC32CharTXT[0] = (newCRC32 >> 24) & 0xFF; 
                                 newCRC32CharTXT[1] = (newCRC32 >> 16) & 0xFF; 
@@ -4163,7 +4164,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
                 strcpy(newMetadata + 4, header);
                 newMetadata[4 + strlen(header)] = 0x00;
                 strcpy(newMetadata + 4 + strlen(header) + 1, data);
-                newCRC32 = crc32b(newMetadata, newLength);
+                newCRC32 = crc32b(newMetadata, newLength+4);
                 unsigned char newCRC32CharTXT[4] = {0};
                 newCRC32CharTXT[0] = (newCRC32 >> 24) & 0xFF; 
                 newCRC32CharTXT[1] = (newCRC32 >> 16) & 0xFF; 
@@ -4487,13 +4488,7 @@ int main(int argc, char** argv) {
                         return 1;
                 }
 		char* header = getHeader(argc,argv);
-                if (header == NULL){
-                        return 1;
-                }
 		char* data = getData(argc,argv);
-		if (data == NULL){
-                        return 1;
-                }
 		updateMetadata(filename, header, data, argc, argv);
                 return 0;
         }
