@@ -562,7 +562,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 fseek(fp_in,nextIFDOffsetNumber,SEEK_SET);
                 unsigned char tagCounterBytes[2] = {0x00,0x00};
                 bytesWithScipMap[nextIFDOffsetNumber] = 0x01;
-                bytesWithScipMap[nextIFDOffsetNumber+1] = 0x00;
+                bytesWithScipMap[nextIFDOffsetNumber+1] = 0x01;
                 fread(tagCounterBytes,1,2,fp_in);
                 u_int16_t tagCounter = (tagCounterBytes[0]<<8)|tagCounterBytes[1];
                 if (isLittleEndian == 1) {
@@ -665,6 +665,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 TIFFInfo* tempInfo2 = tempInfo;
                 u_int16_t counter = 0;
                 while (tempInfo2 != NULL && tempInfo2->ifdNumber == currentIfdNumber) {
+                
                         counter++;
                         tempInfo2 = tempInfo2->next;
                 }
@@ -733,7 +734,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                                         }
                                         fwrite(tempInfo2->data, 1, tempInfo2->dataLen, fp_out);   
                                 }
-                                tempInfo2 = tempInfo->next;
+                                tempInfo2 = tempInfo2->next;
                                 continue;        
                         }
 
@@ -750,7 +751,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                         }
                         fwrite(metadataOfsset, 1, 4, fp_out);
                         currentCounter += tempInfo2->dataLen;
-                        tempInfo2 = tempInfo->next;       
+                        tempInfo2 = tempInfo2->next;       
                 }
                 if (tempInfo2 == NULL) {
                         unsigned char nullBytes[4] = {0x00,0x00,0x00,0x00};
@@ -794,7 +795,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 }
                 currentCounter++;
         }
-
         free(new_filename);
         free(bytesWithScipMap);
         return 0;
@@ -2018,6 +2018,7 @@ int readMetadataJPEG(FILE* fp_in, char* filename) {
                         }
                         if (tempFile) fclose(tempFile);
                         tempFile = fopen(newFilename,"rb");
+                        fseek(tempFile,4,SEEK_SET);
                         readMetadataTIFF(tempFile, isLittleEndian, 0, start);
                         printTIFFInfo(start, isLittleEndian);
                         printf("\n");
@@ -2260,7 +2261,9 @@ int deleteMetadataTIFF(FILE* fp_in, char* header, char* filename, int argc, char
         int longitudeRef = foundExifTagInCLI(argc,argv,"--lonRef");
         int datetime = foundExifTagInCLI(argc,argv,"--dt");
         int imageDescription = foundExifTagInCLI(argc,argv,"--imageDescription");
+        fseek(fp_in,4,SEEK_SET);
         readMetadataTIFF(fp_in, isLittleEndian, 0, startPoint);
+
         if (make != 0) {
                 deleteTiffTag(startPoint, TIFF_MAKE);
         }
@@ -2434,7 +2437,7 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
                         if (!tempFile) {
                                 tempFile = fopen(newFilenameTemp,"rb");
                         }
-                        tempFile = fopen(newFilenameTemp,"rb");
+                        fseek(tempFile,0,SEEK_SET);
                         u_int16_t tagLen = 2+6;
                         long currentPos = ftell(fp_out);
                         while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
@@ -2781,6 +2784,7 @@ int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int a
         getExifArgumentFromCLI(&datetime, argc, argv);
         getExifArgumentFromCLI(&imageDescription, argc, argv);
         TIFFInfo* tiffInfo = initTiffInfo();
+        fseek(fp_in,4,SEEK_SET);
         readMetadataTIFF(fp_in,isLittleEndian, 0,tiffInfo);
         if (make.data != NULL) {
                 TIFFInfo* newNode = initTiffInfo();
@@ -2855,6 +2859,7 @@ int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int a
         }
         rewriteTIFF(tiffInfo, filename, "add", fp_in);
         clearTIFFInfo(tiffInfo);
+
 }
 
 int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
@@ -2980,34 +2985,36 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                                         strcpy(newFilenameTemp,filename);
                                         strcat(newFilenameTemp,"_exif_copy");
                                         FILE* tempFile = fopen(newFilenameTemp,"wb");
-                                        unsigned char usingBytes[8] = {0x4d,0x4d,0x00,0x2a,0x00,0x00,0x00,0x00};
-                                        fwrite(usingBytes,1,8,fp_out);
+                                        unsigned char usingBytes[8] = {0x4d,0x4d,0x00,0x2a,0x00,0x00,0x00,0x08};
+                                        fwrite(usingBytes,1,8,tempFile);
                                         if (tempFile) fclose(tempFile);
                                         tempFile = fopen(newFilenameTemp,"rb");
                                         char* filenameForRemove = (char*)malloc(strlen(newFilenameTemp)+strlen("add_copy")+1);
                                         strcpy(filenameForRemove,newFilenameTemp);
                                         strcat(filenameForRemove,"add_copy");
                                         addMetadataTIFF(tempFile, NULL, NULL, newFilenameTemp, argc, argv, 0);
-                                        if (!tempFile) {
-                                                tempFile = fopen(newFilenameTemp,"rb");
+                                        if (tempFile) {
+                                                fclose(tempFile);
                                         }
                                         tempFile = fopen(newFilenameTemp,"rb");
                                         u_int16_t tagLen = 2+6;
-                                        long currentPos = ftell(fp_out);
                                         while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
-                                                fwrite(&currentByte,1,1,fp_out);
                                                 tagLen++;
                                         }
-                                        if (tempFile) fclose(tempFile);
-                                        fseek(fp_out,currentPos,SEEK_SET);
+                                        if (tempFile) tempFile = fopen(newFilenameTemp,"rb");
                                         unsigned char markerBytes[2] = {0xff,0xe1};
                                         fwrite(markerBytes,1,2,fp_out);
-                                        fwrite(&tagLen,1,2,fp_out);
+                                        unsigned char tagLenBytes[2];
+                                        tagLenBytes[0] = tagLen>>8&0xff;
+                                        tagLenBytes[1] = tagLen&0xff;
+                                        fwrite(tagLenBytes,1,2,fp_out);
                                         unsigned char tagBytes[6] = {0x45,0x78,0x69,0x66,0x00,0x00};
                                         fwrite(tagBytes,1,6,fp_out);
-                                        fseek(fp_out,-8+tagLen,SEEK_CUR);
+                                        while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
+                                                fwrite(&currentByte,1,1,fp_out);
+                                        }
                                         if (tempFile) fclose(tempFile);
-                                        remove(newFilenameTemp);
+                                        //remove(newFilenameTemp);
                                         remove(filenameForRemove);
                                         free(filenameForRemove);
                                         free(newFilenameTemp);
@@ -3064,24 +3071,26 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
                         strcpy(filenameForRemove,newFilenameTemp);
                         strcat(filenameForRemove,"add_copy");
                         addMetadataTIFF(tempFile, NULL, NULL, newFilenameTemp, argc, argv, isLittleEndian);
-                        if (!tempFile) {
-                                tempFile = fopen(newFilenameTemp,"rb");
+                        if (tempFile) {
+                                fclose(tempFile);
                         }
                         tempFile = fopen(newFilenameTemp,"rb");
                         u_int16_t tagLen = 2+6;
-                        long currentPos = ftell(fp_out);
                         while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
-                                fwrite(&currentByte,1,1,fp_out);
                                 tagLen++;
                         }
-                        if (tempFile) fclose(tempFile);
-                        fseek(fp_out,currentPos,SEEK_SET);
+                        if (tempFile) tempFile = fopen(newFilenameTemp,"rb");
                         unsigned char markerBytes[2] = {0xff,0xe1};
                         fwrite(markerBytes,1,2,fp_out);
-                        fwrite(&tagLen,1,2,fp_out);
+                        unsigned char tagLenBytes[2];
+                        tagLenBytes[0] = tagLen>>8&0xff;
+                        tagLenBytes[1] = tagLen&0xff;
+                        fwrite(tagLenBytes,1,2,fp_out);
                         unsigned char tagBytes[6] = {0x45,0x78,0x69,0x66,0x00,0x00};
                         fwrite(tagBytes,1,6,fp_out);
-                        fseek(fp_out,-8+tagLen,SEEK_CUR);
+                        while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
+                                fwrite(&currentByte,1,1,fp_out);
+                        }
                         if (tempFile) fclose(tempFile);
                         remove(newFilenameTemp);
                         remove(filenameForRemove);
@@ -3585,6 +3594,7 @@ int updateMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, in
         getExifArgumentFromCLI(&datetime, argc, argv);
         getExifArgumentFromCLI(&imageDescription, argc, argv);
         TIFFInfo* tiffInfo = initTiffInfo();
+        fseek(fp_in,4,SEEK_SET);
         readMetadataTIFF(fp_in,isLittleEndian, 0,tiffInfo);
         if (make.data != NULL) {
                 deleteTiffTag(tiffInfo, TIFF_MAKE);
@@ -3817,11 +3827,11 @@ int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, in
                         char* filenameForRemove = (char*)malloc(strlen(newFilenameTemp)+strlen("update_copy")+1);
                         strcpy(filenameForRemove,newFilenameTemp);
                         strcat(filenameForRemove,"update_copy");
-                        addMetadataTIFF(tempFile, NULL, NULL, newFilenameTemp, argc, argv, isLittleEndian);
+                        updateMetadataTIFF(tempFile, NULL, NULL, newFilenameTemp, argc, argv, isLittleEndian);
                         if (!tempFile) {
                                 tempFile = fopen(newFilenameTemp,"rb");
                         }
-                        tempFile = fopen(newFilenameTemp,"rb");
+                        fseek(tempFile,0,SEEK_SET);
                         u_int16_t tagLen = 2+6;
                         long currentPos = ftell(fp_out);
                         while (tempFile && fread(&currentByte,1,1,tempFile) == 1) {
@@ -4503,9 +4513,7 @@ int main(int argc, char** argv) {
                         return 1;
                 }
 		char* header = getHeader(argc,argv);
-		if (header == NULL){
-			return 1;
-		}
+		
 		deleteMetadata(filename, header, argc, argv);
 		return 0;
         }
