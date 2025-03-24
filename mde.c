@@ -2471,18 +2471,17 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
         return 0;
 }
 int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
+        if (header == NULL) {
+                printf("Ошибка: Не указан заголовок\n");
+                if (fp_in) fclose(fp_in);
+        }
         int foundMetadata = -1;
         unsigned char currentByte = 0x00;
         fseek(fp_in, 0, SEEK_SET);
         printf("Копирование исходного файла в %s_delete_copy\n", filename);
         char* new_filename = (char*)malloc(strlen(filename) + strlen("_delete_copy") + 1);
-        if (new_filename == NULL) {
-                printf("Ошибка выделения памяти\n");
-                return 1;
-        }
         strcpy(new_filename, filename);
         strcat(new_filename, "_delete_copy");
-        
         FILE* fp_out = fopen(new_filename, "wb");
         if (!fp_out) {
                 printf("Ошибка открытия файла для резервного копирования\n");
@@ -2492,8 +2491,8 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
         while(fread(&currentByte, 1, 1, fp_in) == 1){
                 fwrite(&currentByte, 1, 1, fp_out);
         }
-        fclose(fp_out);
-        fclose(fp_in);
+        if (fp_out) fclose(fp_out);
+        if (fp_in) fclose(fp_in);
         FILE* fp_copy = fopen(new_filename, "rb");
         FILE* fp_delete = fopen(filename, "wb");
         if (!fp_copy || !fp_delete) {
@@ -2568,13 +2567,14 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
                 fseek(fp_copy, 4+4+4+length, SEEK_CUR);
                 foundMetadata = 1;
         }
-        fclose(fp_copy);
-        fclose(fp_delete);
+        if (fp_copy) fclose(fp_copy);
+        if (fp_delete) fclose(fp_delete);
         if (foundMetadata == -1) {
                 printf("Метаданные с таки заголовком не найдены!");
         } else {
                 printf("Успешно!");
         }
+        free(new_filename);
         return 1;
 }
 int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** argv) {
