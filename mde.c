@@ -1205,7 +1205,7 @@ void fillTIFFInfoFromCLI(CLIExifArgument argument, TIFFInfo* newNode, TIFFTags t
                         if (isLittleEndian == 1) {
                                 reversedBytes = (char*)malloc(newNode->dataLen);
                                 for (int j = newNode->dataLen-1; j >= 0; j--) {
-                                        reversedBytes[newNode->dataLen-1-j] = newNode->data[j];
+                                        reversedBytes[newNode->dataLen-1-j] = newNode->data[newNode->dataLen-1-j];
                                 }
                                 newNode->data = reversedBytes;
                         } else {
