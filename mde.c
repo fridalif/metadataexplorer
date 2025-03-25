@@ -1484,10 +1484,10 @@ int readMetadataPNG(FILE* fp_in) {
         return 1;
     }
     while (fread(&currentByte, 1, 1, fp_in) == 1){
-        if (currentByte == 0x74){
+        if (currentByte == 0x74 || currentByte==0x69){
             unsigned char bytes[3] = {0};
             fread(bytes, 3 ,1, fp_in);
-            if (bytes[0]!=0x45 || bytes[1]!=0x58 || bytes[2] != 0x74){
+            if ((currentByte == 0x74 && (bytes[0]!=0x45 || bytes[1]!=0x58 || bytes[2] != 0x74))||(currentByte == 0x69 && (bytes[0]!=0x54 || bytes[1]!=0x58 || bytes[2] != 0x74))){
                 fseek(fp_in, -3, SEEK_CUR);
             } else {
                 fseek(fp_in, -8, SEEK_CUR);
