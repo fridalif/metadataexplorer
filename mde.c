@@ -1650,13 +1650,13 @@ int readMetadataPNG(FILE* fp_in) {
                                 printf("\n");
                         }
                 } else if (tagName[0] == 't' && tagName[1] == 'E' && tagName[2] == 'X' && tagName[3] == 't') {
-                        printf("Найден коментарий:\n");
+                        printf("Найден комментарий:\n");
                         printf("\tЗначение комментария в байтах:");
                         for (int i = 0; i < length; i++) {
                                 printf(" %02x", tagData[i]);
                         }
                         printf("\n");
-                        printf("\tКомменатрий: ");
+                        printf("\tКомментарий: ");
                         for (int i = 0; i < length; i++) {
                                 if (tagData[i] == 0x00) {
                                         printf(":");
