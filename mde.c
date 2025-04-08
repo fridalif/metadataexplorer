@@ -1888,7 +1888,7 @@ int readMetadataPNG(FILE* fp_in) {
                 }
                 
         }
-
+        if (fp_in) fclose(fp_in);
 }
 
 int readMetadataGIF(FILE* fp_in) {
