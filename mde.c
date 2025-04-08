@@ -1476,215 +1476,420 @@ int isValidTag(ExifTags tag) {
 	МОДУЛЬ ЧТЕНИЯ
 
 */
+//
+//int readMetadataPNG(FILE* fp_in) {
+//    unsigned char lastByte;
+//    unsigned char currentByte;
+//    if (!fp_in) {
+//        return 1;
+//    }
+//    while (fread(&currentByte, 1, 1, fp_in) == 1){
+//        if (currentByte == 0x74 || currentByte==0x69){
+//            unsigned char bytes[3] = {0};
+//            fread(bytes, 3 ,1, fp_in);
+//            if ((currentByte == 0x74 && (bytes[0]!=0x45 || bytes[1]!=0x58 || bytes[2] != 0x74))||(currentByte == 0x69 && (bytes[0]!=0x54 || bytes[1]!=0x58 || bytes[2] != 0x74))){
+//                fseek(fp_in, -3, SEEK_CUR);
+//            } else {
+//                fseek(fp_in, -8, SEEK_CUR);
+//                unsigned char lengthBytes[4] = {0};
+//                fread(lengthBytes,4,1,fp_in);
+//                fseek(fp_in, 4, SEEK_CUR);
+//		u_int32_t remain = (lengthBytes[0] << 24) | (lengthBytes[1] << 16) | (lengthBytes[2] << 8) | lengthBytes[3];
+//		u_int32_t tempRemain = remain;
+//		unsigned char* metaData = (unsigned char*) malloc((remain + 1) * sizeof(char));
+//		while (remain>0 && fp_in) {
+//		    unsigned char metaDataByte;
+//		    fread(&metaDataByte, 1, 1, fp_in);
+//		    if (metaDataByte == 0x00) {
+//			metaData[tempRemain-remain] = ':';
+//			remain--;
+//			continue;
+//		    }
+//		    metaData[tempRemain-remain] = metaDataByte;
+//		    remain--;
+//		}
+//		metaData[tempRemain+1] = '\0';
+//		for (int i = 0; i < tempRemain; i++){
+//    		    printf("%c",metaData[i]);
+//		}
+//		printf("\n");
+//                printf("Текстовые данные в байтах: ");
+//                for (int i = 0; i < tempRemain; i++){
+//                        printf("%02x",metaData[i]);
+//                }
+//                printf("\n");
+//                if (metaData!=NULL) {
+//		        free(metaData);
+//                        metaData = NULL;
+//                }
+//	    }
+//        } else if (currentByte == 0x49){
+//	    unsigned char bytes[3] = {0};
+//	    fread(bytes, 3 ,1, fp_in);
+//            if (bytes[0]==0x44 || bytes[1]==0x41 || bytes[2] == 0x54){
+//		break;
+//            }
+//            if (bytes[0] == 0x48 && bytes[1] == 0x44 && bytes[2] == 0x52){
+//                unsigned char widthBytes[4] = {0};
+//                fread(widthBytes, 4 ,1, fp_in);
+//                u_int32_t width = (u_int32_t)((widthBytes[0] << 24) |
+//                                 (widthBytes[1] << 16) |
+//                                 (widthBytes[2] << 8)  |
+//                                 (widthBytes[3]));
+//                
+//                printf("Ширина изображения в байтах: %02x %02x %02x %02x\n",widthBytes[0],widthBytes[1],widthBytes[2],widthBytes[3]);
+//                printf("Ширина изображения: %u\n",width);
+//                unsigned char heightBytes[4] = {0};
+//                fread(heightBytes, 4 ,1, fp_in);
+//                u_int32_t height = (u_int32_t)((heightBytes[0] << 24) |
+//                                 (heightBytes[1] << 16) |
+//                                 (heightBytes[2] << 8)  |
+//                                 (heightBytes[3]));
+//                printf("Высота изображения в байтах: %02x %02x %02x %02x\n", heightBytes[0],heightBytes[1],heightBytes[2],heightBytes[3]);
+//                printf("Высота изображения: %u\n",height);
+//                unsigned char depth = 0;
+//                fread(&depth, 1 ,1, fp_in);
+//                u_int8_t dephtInt = (u_int8_t)(depth);
+//                printf("Глубина цвета в байтах: %02x\n", depth);
+//                printf("Глубина цвета: %u\n",dephtInt);
+//
+//                unsigned char colorType = 0;
+//                fread(&colorType, 1 ,1, fp_in);
+//                printf("Цветовой тип в байтах: %02x\n", colorType);
+//                switch (colorType) {
+//                        case 0x00:
+//                                printf("Цветовой тип: Оттенки серого\n");
+//                                break;
+//                        case 0x02:
+//                                printf("Цветовой тип: RGB\n");
+//                                break;
+//                        case 0x03:
+//                                printf("Цветовой тип: Палитровые цвета\n");
+//                                break;
+//                        case 0x04:
+//                                printf("Цветовой тип: Оттенки серого с альфа-каналом\n");
+//                                break;
+//                        case 0x06:
+//                                printf("Цветовой тип: RGB с альфа-каналом\n");
+//                                break;
+//                        default:
+//                               printf("Цветовой тип: Неизвестно\n"); 
+//                               break;
+//
+//                }
+//
+//
+//                unsigned char compressionType = 0;
+//                fread(&compressionType, 1 ,1, fp_in);
+//                printf("Тип сжатия в байтах: %02x\n", compressionType);
+//                switch (compressionType) {
+//                        case 0x00:
+//                                printf("Тип сжатия: Deflate самый быстрый\n");
+//                                break;
+//                        case 0x01:
+//                                printf("Тип сжатия: Deflate быстрый\n");
+//                                break;
+//                        case 0x02:
+//                                printf("Тип сжатия: Deflate по умолчанию\n");
+//                                break;
+//                        case 0x03:
+//                                printf("Тип сжатия: Deflate максимальное сжатие\n");
+//                                break;
+//                        default:
+//                               printf("Тип сжатия: Неизвестно\n"); 
+//                               break;
+//                }
+//
+//                unsigned char filterMethod = 0;
+//                fread(&filterMethod, 1 ,1, fp_in);
+//                printf("Метод фильрации в байтах: %02x", filterMethod);
+//                switch (filterMethod) {
+//                        case 0x00:
+//                                printf("Метод фильрации: Нет\n");
+//                                break;
+//                        case 0x01:
+//                                printf("Метод фильрации: Вычитание левого(Sub)\n");
+//                                break;
+//                        case 0x02:
+//                                printf("Метод фильрации: Вычитание верхнего(Up)\n");
+//                                break;
+//                        case 0x03:
+//                                printf("Метод фильрации: Вычитание среднего(Average)\n");
+//                                break;
+//                        case 0x04:
+//                                printf("Метод фильрации: алгоритм Paeth\n");
+//                                break;
+//                        default:
+//                               printf("Метод фильтрации: Неизвестно\n"); 
+//                               break;
+//                }
+//
+//                unsigned char interlace = 0;
+//                fread(&interlace, 1 ,1, fp_in);
+//                printf("Interlace в байтах: %02x\n",interlace);
+//                switch (interlace) {
+//                        case 0x00:
+//                                printf("Interlace: Нет\n");
+//                                break;
+//                        case 0x01:
+//                                printf("Interlace: Adam7\n");
+//                                break;
+//                        default:
+//                               printf("Interlace: Неизвестно\n"); 
+//                               break;
+//                }
+//                continue;
+//            }
+//	    fseek(fp_in, -3, SEEK_CUR);
+//	} else if (currentByte == 0x70) {
+//            unsigned char bytes[3] = {0};
+//	    fread(bytes, 3 ,1, fp_in);
+//            if (bytes[0]==0x48 || bytes[1]==59 || bytes[2] == 0x73){
+//                unsigned char horizontalBytes[4] = {0};
+//                fread(horizontalBytes, 4 ,1, fp_in);
+//                u_int32_t horizontal = (u_int32_t)((horizontalBytes[0] << 24) |
+//                                 (horizontalBytes[1] << 16) |
+//                                 (horizontalBytes[2] << 8)  |
+//                                 (horizontalBytes[3]));
+//                printf("Горизонтальное разрешение в байтах: %02x %02x %02x %02x\n", horizontalBytes[0], horizontalBytes[1], horizontalBytes[2], horizontalBytes[3]);
+//                printf("Горизонтальное разрешение: %u\n",horizontal);
+//                unsigned char verticalBytes[4] = {0};
+//                fread(verticalBytes, 4 ,1, fp_in);
+//                u_int32_t vertical = (u_int32_t)((verticalBytes[0] << 24) |
+//                                 (verticalBytes[1] << 16) |
+//                                 (verticalBytes[2] << 8)  |
+//                                 (verticalBytes[3]));
+//                printf("Вертикальное разрешение в байтах: %02x %02x %02x %02x\n", verticalBytes[0], verticalBytes[1], verticalBytes[2], verticalBytes[3]);
+//                printf("Вертикальное разрешение: %u\n",vertical);
+//                unsigned char measure = 0;
+//                fread(&measure, 1 ,1, fp_in);
+//                printf("Единицы измерения в байтах: %02x\n", measure);
+//                switch (measure){
+//                        case 0:
+//                                printf("Единицы измерения: Не указано(предположительно соотношение сторон)\n");
+//                                break;
+//                        case 1:
+//                                printf("Единицы измерения: Метры\n");
+//                                break;
+//                        default:
+//                                printf("Единицы измерения: Неизвестно\n");
+//                                break;
+//                }
+//                continue;
+//            }
+//            fseek(fp_in, -3, SEEK_CUR);
+//        }
+//	lastByte = currentByte;
+//    }
+//    return 0;
+//}
 
 int readMetadataPNG(FILE* fp_in) {
-    unsigned char lastByte;
-    unsigned char currentByte;
-    if (!fp_in) {
-        return 1;
-    }
-    while (fread(&currentByte, 1, 1, fp_in) == 1){
-        if (currentByte == 0x74 || currentByte==0x69){
-            unsigned char bytes[3] = {0};
-            fread(bytes, 3 ,1, fp_in);
-            if ((currentByte == 0x74 && (bytes[0]!=0x45 || bytes[1]!=0x58 || bytes[2] != 0x74))||(currentByte == 0x69 && (bytes[0]!=0x54 || bytes[1]!=0x58 || bytes[2] != 0x74))){
-                fseek(fp_in, -3, SEEK_CUR);
-            } else {
-                fseek(fp_in, -8, SEEK_CUR);
-                unsigned char lengthBytes[4] = {0};
-                fread(lengthBytes,4,1,fp_in);
-                fseek(fp_in, 4, SEEK_CUR);
-		u_int32_t remain = (lengthBytes[0] << 24) | (lengthBytes[1] << 16) | (lengthBytes[2] << 8) | lengthBytes[3];
-		u_int32_t tempRemain = remain;
-		unsigned char* metaData = (unsigned char*) malloc((remain + 1) * sizeof(char));
-		while (remain>0 && fp_in) {
-		    unsigned char metaDataByte;
-		    fread(&metaDataByte, 1, 1, fp_in);
-		    if (metaDataByte == 0x00) {
-			metaData[tempRemain-remain] = ':';
-			remain--;
-			continue;
-		    }
-		    metaData[tempRemain-remain] = metaDataByte;
-		    remain--;
-		}
-		metaData[tempRemain+1] = '\0';
-		for (int i = 0; i < tempRemain; i++){
-    		    printf("%c",metaData[i]);
-		}
-		printf("\n");
-                printf("Текстовые данные в байтах: ");
-                for (int i = 0; i < tempRemain; i++){
-                        printf("%02x",metaData[i]);
+        fseek(fp_in, 8, SEEK_SET);
+        unsigned char lengthBytes[4] = {0x00,0x00,0x00,0x00};
+        unsigned char tagName[4] = {0x00,0x00,0x00,0x00};
+        int result = 0;
+        u_int32_t  length = 0;
+        while(fp_in && fread(lengthBytes,1,4,fp_in) == 4) {
+                result = fread(tagName,1,4,fp_in);
+                if (result!=4 || !fp_in) {
+                        break;
                 }
-                printf("\n");
-                if (metaData!=NULL) {
-		        free(metaData);
-                        metaData = NULL;
+        
+                length = (lengthBytes[0]<<24)|(lengthBytes[1]<<16)|(lengthBytes[2]<<8)|(lengthBytes[3]);
+                if ((tagName[0] == 'I' && tagName[1] == 'D' && tagName[2] == 'A' && tagName[3] == 'T')||(tagName[0] == 'I' && tagName[1] == 'E' && tagName[2] == 'N' && tagName[3] == 'D')) {
+                        fseek(fp_in,length+4,SEEK_CUR);
+                        continue;
                 }
-	    }
-        } else if (currentByte == 0x49){
-	    unsigned char bytes[3] = {0};
-	    fread(bytes, 3 ,1, fp_in);
-            if (bytes[0]==0x44 || bytes[1]==0x41 || bytes[2] == 0x54){
-		break;
-            }
-            if (bytes[0] == 0x48 && bytes[1] == 0x44 && bytes[2] == 0x52){
-                unsigned char widthBytes[4] = {0};
-                fread(widthBytes, 4 ,1, fp_in);
-                u_int32_t width = (u_int32_t)((widthBytes[0] << 24) |
-                                 (widthBytes[1] << 16) |
-                                 (widthBytes[2] << 8)  |
-                                 (widthBytes[3]));
+                unsigned char* tagData = (unsigned char*)malloc(length);
+                if (tagData == NULL) {
+                        fseek(fp_in,length+4,SEEK_CUR);
+                        continue;
+                }
+                result = fread(tagData,1,length,fp_in);
+                if (result<length || !fp_in) {
+                        free(tagData);
+                        if (fp_in) {
+                                fseek(fp_in,4,SEEK_CUR);
+                        }
+                        continue;
+                }
+                if (tagName[0] == 'I' && tagName[1] == 'H' && tagName[2] == 'D' && tagName[3] == 'R') {
+                        if (length<13) {
+                                printf("Предупреждение: Найден IHDR с длиной меньше 13 байт. Не был считан в стандартном формате.\n");
+                                printf("\tДанные этого IHDR в байтах:");
+                                for (int i=0; i<length;i++) {
+                                        printf(" %02x", tagData[i]);
+                                }
+                                printf("\n");
+                                free(tagData);
+                                fseek(fp_in,4,SEEK_CUR);
+                                continue;
+                        }
+                        printf("IHDR:\n");
+                        u_int32_t width = (tagData[0]<<24)|(tagData[1]<<16)|(tagData[2]<<8)|(tagData[3]);
+                        u_int32_t height = (tagData[4]<<24)|(tagData[5]<<16)|(tagData[6]<<8)|(tagData[7]);
+                        printf("\tШирина изображения в байтах: %02x %02x %02x %02x\n", tagData[0],tagData[1], tagData[2], tagData[3]);
+                        printf("\tШирина изображения: %d\n", width);
+                        printf("\tВысота изображения в байтах: %02x %02x %02x %02x\n", tagData[4],tagData[5], tagData[6], tagData[7]);
+                        printf("\tВысота изображения: %d\n", height);
+                        u_int8_t dephtInt = (u_int8_t)(tagData[8]);
+                        printf("\tГлубина цвета в байтах: %02x\n", tagData[8]);
+                        printf("\tГлубина цвета: %u\n",dephtInt);
+                        printf("\tЦветовой тип в байтах: %02x\n", tagData[9]);
+                        switch (tagData[9]) {
+                                case 0x00:
+                                        printf("\tЦветовой тип: Оттенки серого\n");
+                                        break;
+                                case 0x02:
+                                        printf("\tЦветовой тип: RGB\n");
+                                        break;
+                                case 0x03:
+                                        printf("\tЦветовой тип: Палитровые цвета\n");
+                                        break;
+                                case 0x04:
+                                        printf("\tЦветовой тип: Оттенки серого с альфа-каналом\n");
+                                        break;
+                                case 0x06:
+                                        printf("\tЦветовой тип: RGB с альфа-каналом\n");
+                                        break;
+                                default:
+                                       printf("\tЦветовой тип: Неизвестно\n"); 
+                                       break;
+
+                        }
+
+                        printf("\tТип сжатия в байтах: %02x\n", tagData[10]);
+                        switch (tagData[10]) {
+                                case 0x00:
+                                        printf("\tТип сжатия: Deflate самый быстрый\n");
+                                        break;
+                                case 0x01:
+                                        printf("\tТип сжатия: Deflate быстрый\n");
+                                        break;
+                                case 0x02:
+                                        printf("\tТип сжатия: Deflate по умолчанию\n");
+                                        break;
+                                case 0x03:
+                                        printf("\tТип сжатия: Deflate максимальное сжатие\n");
+                                        break;
+                                default:
+                                       printf("\tТип сжатия: Неизвестно\n"); 
+                                       break;
+                        }
+
+                        printf("\tМетод фильрации в байтах: %02x\n", tagData[11]);
+                        switch (tagData[11]) {
+                                case 0x00:
+                                        printf("\tМетод фильрации: Нет\n");
+                                        break;
+                                case 0x01:
+                                        printf("\tМетод фильрации: Вычитание левого(Sub)\n");
+                                        break;
+                                case 0x02:
+                                        printf("\tМетод фильрации: Вычитание верхнего(Up)\n");
+                                        break;
+                                case 0x03:
+                                        printf("\tМетод фильрации: Вычитание среднего(Average)\n");
+                                        break;
+                                case 0x04:
+                                        printf("\tМетод фильрации: алгоритм Paeth\n");
+                                        break;
+                                default:
+                                       printf("\tМетод фильтрации: Неизвестно\n"); 
+                                       break;
+                        }
+                        printf("\tInterlace в байтах: %02x\n",tagData[12]);
+                        switch (tagData[12]) {
+                                case 0x00:
+                                        printf("\tInterlace: Нет\n");
+                                        break;
+                                case 0x01:
+                                        printf("\tInterlace: Adam7\n");
+                                        break;
+                                default:
+                                       printf("\tInterlace: Неизвестно\n"); 
+                                       break;
+                        }
+                        if (length>13) {
+                                printf("\tОстальные байты относящиеся к IHDR:");
+                                for (int i = 13; i < length; i++) {
+                                        printf(" %02x", tagData[i]);
+                                }
+                                printf("\n");
+                        }
+                } else if (tagName[0] == 'p' && tagName[1] == 'H' && tagName[2] == 'Y' && tagName[3] == 's') {
+                        if (length<9) {
+                                printf("Предупреждение: Найден pHYs с длиной меньше 9 байт. Не был считан в стандартном формате.\n");
+                                printf("\tДанные этого pHYs в байтах:");
+                                for (int i=0; i<length;i++) {
+                                        printf(" %02x", tagData[i]);
+                                }
+                                printf("\n");
+                                free(tagData);
+                                fseek(fp_in,4,SEEK_CUR);
+                                continue;
+                        }
+                        printf("pHYs:\n");
+                        u_int32_t horizontal = (tagData[0]<<24)|(tagData[1]<<16)|(tagData[2]<<8)|(tagData[3]);
+                        printf("\tГоризонтальное разрешение в байтах: %02x %02x %02x %02x\n", tagData[0], tagData[1], tagData[2], tagData[3]);
+                        printf("\tГоризонтальное разрешение: %d\n", horizontal);
+                        u_int32_t vertical = (tagData[4]<<24)|(tagData[5]<<16)|(tagData[6]<<8)|(tagData[7]);
+                        printf("\tВертикальное разрешение в байтах: %02x %02x %02x %02x\n", tagData[4], tagData[5], tagData[6], tagData[7]);
+                        printf("\tВертикальное разрешение: %d\n", vertical);
+                        printf("\tЕдиницы измерения в байтах: %02x\n", tagData[8]);
+                        switch (tagData[8]){
+                                case 0:
+                                        printf("\tЕдиницы измерения: Не указано(предположительно соотношение сторон)\n");
+                                        break;
+                                case 1:
+                                        printf("\tЕдиницы измерения: Метры\n");
+                                        break;
+                                default:
+                                        printf("\tЕдиницы измерения: Неизвестно\n");
+                                        break;
+                        }
+                        if (length>9) {
+                                printf("Остальные байты относящиеся к pHYs:");
+                                for (int i = 9; i < length; i++) {
+                                        printf(" %02x", tagData[i]);
+                                }
+                                printf("\n");
+                        }
+                } else if (tagName[0] == 't' && tagName[1] == 'E' && tagName[2] == 'X' && tagName[3] == 't') {
+                        printf("Найден коментарий:\n");
+                        printf("\tЗначение комментария в байтах:");
+                        for (int i = 0; i < length; i++) {
+                                printf(" %02x", tagData[i]);
+                        }
+                        printf("\n");
+                        printf("\tКомменатрий:");
+                        for (int i = 0; i < length; i++) {
+                                if (tagData[i] == 0x00) {
+                                        printf(":");
+                                        continue;
+                                }
+                                printf(" %c", tagData[i]);
+                        }
+                        printf("\n");
+                } else {
+                        printf("Предупреждение! Найден неизвестный тег:\n");
+                        printf("\t Название тега в байтах: %02x %02x %02x %02x\n", tagName[0], tagName[1], tagName[2], tagName[3]);
+                        printf("\t Название тега: %c %c %c %c\n", tagName[0], tagName[1], tagName[2], tagName[3]);
+                        printf("\t Данные тега в байтах:");
+                        for (int i = 0; i < length; i++) {
+                                printf(" %02x", tagData[i]);
+                        }
+                        printf("\n");
+                }
+                free(tagData);
+                if (fp_in) {
+                        fseek(fp_in,4,SEEK_CUR);
+                }
                 
-                printf("Ширина изображения в байтах: %02x %02x %02x %02x\n",widthBytes[0],widthBytes[1],widthBytes[2],widthBytes[3]);
-                printf("Ширина изображения: %u\n",width);
-                unsigned char heightBytes[4] = {0};
-                fread(heightBytes, 4 ,1, fp_in);
-                u_int32_t height = (u_int32_t)((heightBytes[0] << 24) |
-                                 (heightBytes[1] << 16) |
-                                 (heightBytes[2] << 8)  |
-                                 (heightBytes[3]));
-                printf("Высота изображения в байтах: %02x %02x %02x %02x\n", heightBytes[0],heightBytes[1],heightBytes[2],heightBytes[3]);
-                printf("Высота изображения: %u\n",height);
-                unsigned char depth = 0;
-                fread(&depth, 1 ,1, fp_in);
-                u_int8_t dephtInt = (u_int8_t)(depth);
-                printf("Глубина цвета в байтах: %02x\n", depth);
-                printf("Глубина цвета: %u\n",dephtInt);
-
-                unsigned char colorType = 0;
-                fread(&colorType, 1 ,1, fp_in);
-                printf("Цветовой тип в байтах: %02x\n", colorType);
-                switch (colorType) {
-                        case 0x00:
-                                printf("Цветовой тип: Оттенки серого\n");
-                                break;
-                        case 0x02:
-                                printf("Цветовой тип: RGB\n");
-                                break;
-                        case 0x03:
-                                printf("Цветовой тип: Палитровые цвета\n");
-                                break;
-                        case 0x04:
-                                printf("Цветовой тип: Оттенки серого с альфа-каналом\n");
-                                break;
-                        case 0x06:
-                                printf("Цветовой тип: RGB с альфа-каналом\n");
-                                break;
-                        default:
-                               printf("Цветовой тип: Неизвестно\n"); 
-                               break;
-
-                }
-
-
-                unsigned char compressionType = 0;
-                fread(&compressionType, 1 ,1, fp_in);
-                printf("Тип сжатия в байтах: %02x\n", compressionType);
-                switch (compressionType) {
-                        case 0x00:
-                                printf("Тип сжатия: Deflate самый быстрый\n");
-                                break;
-                        case 0x01:
-                                printf("Тип сжатия: Deflate быстрый\n");
-                                break;
-                        case 0x02:
-                                printf("Тип сжатия: Deflate по умолчанию\n");
-                                break;
-                        case 0x03:
-                                printf("Тип сжатия: Deflate максимальное сжатие\n");
-                                break;
-                        default:
-                               printf("Тип сжатия: Неизвестно\n"); 
-                               break;
-                }
-
-                unsigned char filterMethod = 0;
-                fread(&filterMethod, 1 ,1, fp_in);
-                printf("Метод фильрации в байтах: %02x", filterMethod);
-                switch (filterMethod) {
-                        case 0x00:
-                                printf("Метод фильрации: Нет\n");
-                                break;
-                        case 0x01:
-                                printf("Метод фильрации: Вычитание левого(Sub)\n");
-                                break;
-                        case 0x02:
-                                printf("Метод фильрации: Вычитание верхнего(Up)\n");
-                                break;
-                        case 0x03:
-                                printf("Метод фильрации: Вычитание среднего(Average)\n");
-                                break;
-                        case 0x04:
-                                printf("Метод фильрации: алгоритм Paeth\n");
-                                break;
-                        default:
-                               printf("Метод фильтрации: Неизвестно\n"); 
-                               break;
-                }
-
-                unsigned char interlace = 0;
-                fread(&interlace, 1 ,1, fp_in);
-                printf("Interlace в байтах: %02x\n",interlace);
-                switch (interlace) {
-                        case 0x00:
-                                printf("Interlace: Нет\n");
-                                break;
-                        case 0x01:
-                                printf("Interlace: Adam7\n");
-                                break;
-                        default:
-                               printf("Interlace: Неизвестно\n"); 
-                               break;
-                }
-                continue;
-            }
-	    fseek(fp_in, -3, SEEK_CUR);
-	} else if (currentByte == 0x70) {
-            unsigned char bytes[3] = {0};
-	    fread(bytes, 3 ,1, fp_in);
-            if (bytes[0]==0x48 || bytes[1]==59 || bytes[2] == 0x73){
-                unsigned char horizontalBytes[4] = {0};
-                fread(horizontalBytes, 4 ,1, fp_in);
-                u_int32_t horizontal = (u_int32_t)((horizontalBytes[0] << 24) |
-                                 (horizontalBytes[1] << 16) |
-                                 (horizontalBytes[2] << 8)  |
-                                 (horizontalBytes[3]));
-                printf("Горизонтальное разрешение в байтах: %02x %02x %02x %02x\n", horizontalBytes[0], horizontalBytes[1], horizontalBytes[2], horizontalBytes[3]);
-                printf("Горизонтальное разрешение: %u\n",horizontal);
-                unsigned char verticalBytes[4] = {0};
-                fread(verticalBytes, 4 ,1, fp_in);
-                u_int32_t vertical = (u_int32_t)((verticalBytes[0] << 24) |
-                                 (verticalBytes[1] << 16) |
-                                 (verticalBytes[2] << 8)  |
-                                 (verticalBytes[3]));
-                printf("Вертикальное разрешение в байтах: %02x %02x %02x %02x\n", verticalBytes[0], verticalBytes[1], verticalBytes[2], verticalBytes[3]);
-                printf("Вертикальное разрешение: %u\n",vertical);
-                unsigned char measure = 0;
-                fread(&measure, 1 ,1, fp_in);
-                printf("Единицы измерения в байтах: %02x\n", measure);
-                switch (measure){
-                        case 0:
-                                printf("Единицы измерения: Не указано(предположительно соотношение сторон)\n");
-                                break;
-                        case 1:
-                                printf("Единицы измерения: Метры\n");
-                                break;
-                        default:
-                                printf("Единицы измерения: Неизвестно\n");
-                                break;
-                }
-                continue;
-            }
-            fseek(fp_in, -3, SEEK_CUR);
         }
-	lastByte = currentByte;
-    }
-    return 0;
+
 }
-
-
 
 int readMetadataGIF(FILE* fp_in) {
         unsigned char width[2] = {0x00};
