@@ -1656,13 +1656,13 @@ int readMetadataPNG(FILE* fp_in) {
                                 printf(" %02x", tagData[i]);
                         }
                         printf("\n");
-                        printf("\tКомменатрий:");
+                        printf("\tКомменатрий: ");
                         for (int i = 0; i < length; i++) {
                                 if (tagData[i] == 0x00) {
                                         printf(":");
                                         continue;
                                 }
-                                printf(" %c", tagData[i]);
+                                printf("%c", tagData[i]);
                         }
                         printf("\n");
                 } else {
