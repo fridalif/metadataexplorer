@@ -1704,8 +1704,16 @@ int readMetadataGIF(FILE* fp_in) {
         printf("Индекс цвета в таблице: %d\n", (u_int8_t)colorIndex);
         printf("Соотношение сторон пикселя в байтах: %02x\n", resolution);
         printf("Соотношение сторон пикселя: %d\n", (u_int8_t)resolution);
+        fseek(fp_in,768,SEEK_CUR);
         unsigned char currentByte = 0x00;
         while(fp_in && fread(&currentByte, 1, 1, fp_in) == 1) {
+                if (currentByte == 0x2C) {
+                        while(currentByte != 0x00 && currentByte != 0x3b && fread(&currentByte, 1, 1, fp_in) == 1) {
+                                
+                        }
+                        continue;
+                        
+                }
                 if (currentByte != 0x21) {
                         continue;
                 }
@@ -3447,6 +3455,9 @@ int addMetadataGIF(FILE* fp_in, char* filename, char* header, char* data, int ar
         unsigned char startBytes[13] = {0};
         fread(startBytes,1,13,fp_in);
         fwrite(startBytes,13,1,fp_out);
+        unsigned char globalTable[768] = {0};
+        fread(globalTable,1,768,fp_in);
+        fwrite(globalTable,768,1,fp_out);
         if (newData != NULL) {
                 unsigned char extensionId[2] = {0x21, 0xfe};
                 fwrite(extensionId, 2, 1, fp_out);
