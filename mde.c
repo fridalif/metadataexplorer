@@ -135,7 +135,6 @@ void deleteTiffTag(TIFFInfo* start, TIFFTags tag) {
                         tempTag->next = tempTagNext->next;
                         tempTagNext->next = NULL;
                         clearTIFFInfo(tempTagNext);
-                        tempTagNext = tempTag->next;
                         break;
                 }
                 tempTag = tempTagNext;
@@ -304,6 +303,7 @@ void printTIFFInfo(TIFFInfo* start, int isLittleEndian) {
                         
                 }
                 char* name = NULL;
+                
                 switch (temp->tagType) {
                         case TIFF_IMAGE_WIDTH:
                                 name = "Ширина изображения";
@@ -381,7 +381,7 @@ void printTIFFInfo(TIFFInfo* start, int isLittleEndian) {
                                 name = "Программа";
                                 break;
                         default:
-                                char buffname[100];
+                                static char buffname[100];
                                 sprintf(buffname,"Unknown tag %d", temp->tagType);
                                 name = buffname;
                                 break;
@@ -486,20 +486,9 @@ int writeHelpMessage(char* execName) {
         
 }
 
-u_int16_t getIFDInnerCount(TIFFInfo* start, int ifdNumber) {
-        TIFFInfo* current = start;
-        u_int16_t counter = 0;
-        while (current) {
-                if (current->ifdNumber == ifdNumber) {
-                        counter++;
-                }
-                current = current->next;
-        }
-        return counter;
-}
 
 int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 fclose(fp_in);
         }
         char* new_filename = (char*)malloc(strlen(filename) + strlen(operation) + strlen("_copy") + 1);
@@ -523,10 +512,10 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
                 bytesCount++;
                 fwrite(&currentChar,1,1,fp_out);
         }
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 fclose(fp_in);
         }
-        if (fp_out) {
+        if (fp_out!=NULL) {
                 fclose(fp_out);
         }
         unsigned char* bytesWithScipMap = (unsigned char*)malloc(bytesCount);
@@ -546,7 +535,7 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         fseek(fp_in,2,SEEK_CUR);
         unsigned char nextIFDOffset[4] = {0x00,0x00,0x00,0x00}; 
         u_int32_t nextIFDOffsetNumber = 0;
-        while (fp_in && fread(nextIFDOffset,1,4,fp_in) == 4) {
+        while (fp_in!=NULL && fread(nextIFDOffset,1,4,fp_in) == 4) {
                 long currentPosNext = ftell(fp_in)-4;
                 bytesWithScipMap[currentPosNext] = 0x01;
                 bytesWithScipMap[currentPosNext+1] = 0x01;
@@ -636,8 +625,12 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         }
 
         printf("Карта построена: Успешно\n\n");
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 fp_in = fopen(new_filename, "rb");
+        }
+        if (fp_in==NULL) {
+                printf("Не удалось открыть исходный файл\n");
+                return 1;
         }
         fseek(fp_in, 0, SEEK_SET);
         unsigned char magicBytes[4] = {0x00,0x00,0x00,0x00};
@@ -784,12 +777,12 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         }
         printf("IFD записан\n");
         currentCounter = 4;
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 fp_in = fopen(new_filename, "rb");
         }
         fseek(fp_in, 4, SEEK_SET);
         //Запись остального
-        while (fp_in && fread(&currentChar, 1, 1, fp_in)) {
+        while (fp_in!=NULL && fread(&currentChar, 1, 1, fp_in)) {
                 if (bytesWithScipMap[currentCounter] != 0x01) {
                         fwrite(&currentChar, 1, 1, fp_out);
                 }
@@ -800,19 +793,6 @@ int rewriteTIFF(TIFFInfo* start, char* filename, char* operation, FILE* fp_in) {
         return 0;
 }
 
-int append(ExifInfo* start, ExifInfo* appendingItem) {
-    if (start == NULL) {
-        appendingItem->next = NULL;
-        return 1; 
-    }
-
-    ExifInfo* tempPointer = start;
-    while (tempPointer->next != NULL) {
-        tempPointer = tempPointer->next;
-    }
-    tempPointer->next = appendingItem;
-    return 1;
-}
 
 void clearExifInfo(ExifInfo* info) {
         if (info == NULL) {
@@ -886,6 +866,7 @@ CLIExifArgument constructorCLIExifArgument(char* header) {
         CLIExifArgument newCLIExifArg;
         newCLIExifArg.data = NULL;
         newCLIExifArg.header = header;
+        newCLIExifArg.format = 0;
         return newCLIExifArg;
 }
 
@@ -1411,17 +1392,6 @@ void fillTIFFInfoFromCLI(CLIExifArgument argument, TIFFInfo* newNode, TIFFTags t
 
 
 
-u_int16_t countExifTags(ExifInfo* startNode) {
-        u_int16_t result = 0;
-        ExifInfo* next = startNode->next;
-        while (next!=NULL) {
-                result++;
-                next = next->next;
-        }
-        return result;
-}
-
-
 /*
 
         ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -1444,7 +1414,7 @@ int getSystemMarks(int argc, char** argv, char* flag, char* buffer) {
         return 1;
 }
 
-unsigned int crc32b(unsigned char *message, int len) {
+unsigned int crc32b(const unsigned char *message, int len) {
    int i, j;
    unsigned int byte, crc, mask;
 
@@ -1464,12 +1434,6 @@ unsigned int crc32b(unsigned char *message, int len) {
    return ~crc;
 }
 
-int isValidTag(ExifTags tag) {
-        if (tag!=EXIF_USERCOMMENT && tag!=EXIF_MAKE && tag!=EXIF_MODEL && tag!=EXIF_EXPOSURE && tag!=EXIF_FNUMBER && tag!=EXIF_ISOSPEEDRATING && tag!=EXIF_GPSLATITUDE && tag!=EXIF_GPSLONGITUDE && tag !=EXIF_GPSLATITUDEREF && tag!=EXIF_GPSLONGITUDEREF && tag!=EXIF_DATETIME && tag!=EXIF_IMAGEDESCRIPTION) {
-                return 0;
-        }
-        return 1;
-}
 
 /*
 
@@ -1478,6 +1442,9 @@ int isValidTag(ExifTags tag) {
 */
 
 int readMetadataPNG(FILE* fp_in) {
+        if (fp_in == NULL) {
+                return 1;
+        }
         fseek(fp_in, 8, SEEK_SET);
         unsigned char lengthBytes[4] = {0x00,0x00,0x00,0x00};
         unsigned char tagName[4] = {0x00,0x00,0x00,0x00};
@@ -1502,7 +1469,7 @@ int readMetadataPNG(FILE* fp_in) {
                 result = fread(tagData,1,length,fp_in);
                 if (result<length || !fp_in) {
                         free(tagData);
-                        if (fp_in) {
+                        if (fp_in!=NULL) {
                                 fseek(fp_in,4,SEEK_CUR);
                         }
                         continue;
@@ -1676,12 +1643,13 @@ int readMetadataPNG(FILE* fp_in) {
                         printf("\n");
                 }
                 free(tagData);
-                if (fp_in) {
+                if (fp_in!=NULL) {
                         fseek(fp_in,4,SEEK_CUR);
                 }
                 
         }
-        if (fp_in) fclose(fp_in);
+        if (fp_in!=NULL) fclose(fp_in);
+        return 1;
 }
 
 int readMetadataGIF(FILE* fp_in) {
@@ -1772,6 +1740,7 @@ int readMetadataGIF(FILE* fp_in) {
                         u_int8_t length = 0;
                         fread(&length,1,1,fp_in);
                         unsigned char* buffer = (unsigned char*)malloc(length);
+                        fread(buffer, 1, length, fp_in);
                         printf("\tДанные о приложении в байтах:");
                         for (int i = 0; i < length; i++) {
                                 printf(" %02x", buffer[i]);
@@ -1809,7 +1778,7 @@ int readMetadataGIF(FILE* fp_in) {
 }
 
 int readMetadataTIFF(FILE* fp_in, int isLittleEndian, int withClear, TIFFInfo* start) {
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 printf("Ошибка: не удалось считать из файла\n");
                 return 1;
         }
@@ -1937,16 +1906,18 @@ int readMetadataTIFF(FILE* fp_in, int isLittleEndian, int withClear, TIFFInfo* s
                 fseek(fp_in,ifdStart+ifdLen,SEEK_SET);
                 ifdCounter++;
         }
-        if (withClear) printTIFFInfo(start, isLittleEndian);
-        if (withClear) clearTIFFInfo(start);
-        if (withClear) fclose(fp_in);
+        if (withClear) {
+                printTIFFInfo(start, isLittleEndian);
+                clearTIFFInfo(start);
+                fclose(fp_in);
+        }
         return 0;
 }
 
 
 int readMetadataJPEG(FILE* fp_in, char* filename) {
         unsigned char currentByte = 0x00;
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 return 1;
         }
         int tiffCounter = 0;
@@ -2137,7 +2108,7 @@ int readMetadata(char* filename, int argc, char** argv){
     }
     printf("\n");
     FILE* fp_in = fopen(filename,"rb");
-    if (!fp_in) {
+    if (fp_in==NULL) {
         printf("Ошибка открытия файла\n");
         return 1;
     }
@@ -2229,21 +2200,6 @@ int readMetadata(char* filename, int argc, char** argv){
 	МОДУЛЬ УДАЛЕНИЯ
 
 */
-void deleteFromExifInfo(ExifInfo* startNode, ExifTags tag) {
-        ExifInfo* nextNode = startNode->next;
-        ExifInfo* curNode = startNode;
-        while (nextNode!=NULL) {
-                if (nextNode->tagType == tag) {
-                        curNode->next = nextNode->next;
-                        nextNode->next = NULL;
-                        clearExifInfo(nextNode);
-                        nextNode = curNode->next;
-                        continue;
-                }
-                curNode = nextNode;
-                nextNode = nextNode->next;
-        }
-}
 int foundExifTagInCLI(int argc, char** argv, char* header) {
         for (int i = 1; i < argc; i++) {
                 if (strcmp(argv[i], header) == 0) {
@@ -2254,6 +2210,10 @@ int foundExifTagInCLI(int argc, char** argv, char* header) {
 }
 
 int deleteMetadataTIFF(FILE* fp_in, char* header, char* filename, int argc, char** argv, int isLittleEndian) {
+        if (fp_in == NULL) {
+                printf("Ошибка открытия файла\n");
+                return 1;
+        }
         TIFFInfo* startPoint = initTiffInfo();
         int make = foundExifTagInCLI(argc,argv,"--make");
         int model = foundExifTagInCLI(argc,argv,"--model");
@@ -2336,7 +2296,7 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
         strcpy(new_filename, filename);
         strcat(new_filename, "_delete_copy");
         FILE* fp_out = fopen(new_filename, "wb");
-        if (!fp_out) {
+        if (fp_out==NULL) {
                 printf("Ошибка открытия файла для резервного копирования\n");
                 return 1;
         }
@@ -2348,16 +2308,16 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
         printf("Копирование исходного файла в %s_delete_copy завершено\n", filename);
         printf("Удаление метаданных\n");
         fp_in = fopen(new_filename, "rb");
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 printf("Ошибка открытия файла для чтения\n");
                 return 1;
         }
         fp_out = fopen(filename, "wb");
-        if (!fp_out) {
+        if (fp_out==NULL) {
                 printf("Ошибка открытия файла для записи\n");
                 return 1;
         }
-        while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
+        while (fp_in!=NULL && fread(&currentByte,1,1,fp_in) == 1) {
                 if (currentByte == 0xff) {
                         unsigned char nextByte = 0x00;
                         int result = fread(&nextByte,1,1,fp_in);
@@ -2396,7 +2356,7 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
                                 fseek(fp_in,markerLen-strlen(header)-1,SEEK_CUR);
                                 continue;
                         }
-                        if (nextByte!=0xe1 || (nextByte == 0xe1 && alreadyDeleted!=-1) || (nextByte == 0xfe && (alreadyDeletedComment!=-1||header==NULL))) {
+                        if (nextByte!=0xe1 || alreadyDeleted!=-1) {
                                 fwrite(&currentByte,1,1,fp_out);
                                 fseek(fp_in,-1,SEEK_CUR);
                                 continue;
@@ -2469,10 +2429,10 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
                 }
                 fwrite(&currentByte,1,1,fp_out);
         }
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 fclose(fp_in);
         }
-        if (fp_out) {
+        if (fp_out!=NULL) {
                 fclose(fp_out);
         }
         free(new_filename);
@@ -2481,7 +2441,7 @@ int deleteMetadataJPEG(FILE* fp_in, char* header, char* filename, int argc, char
 int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
         if (header == NULL) {
                 printf("Ошибка: Не указан заголовок\n");
-                if (fp_in) fclose(fp_in);
+                if (fp_in!=NULL) fclose(fp_in);
                 return 1;
         }
         int foundMetadata = -1;
@@ -2492,7 +2452,7 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
         strcpy(new_filename, filename);
         strcat(new_filename, "_delete_copy");
         FILE* fp_out = fopen(new_filename, "wb");
-        if (!fp_out) {
+        if (fp_out==NULL) {
                 printf("Ошибка открытия файла для резервного копирования\n");
                 free(new_filename);
                 return 1;
@@ -2500,8 +2460,8 @@ int deleteMetadataPNG(FILE* fp_in, char* header, char* filename){
         while(fread(&currentByte, 1, 1, fp_in) == 1){
                 fwrite(&currentByte, 1, 1, fp_out);
         }
-        if (fp_out) fclose(fp_out);
-        if (fp_in) fclose(fp_in);
+        if (fp_out!=NULL) fclose(fp_out);
+        if (fp_in!=NULL) fclose(fp_in);
         FILE* fp_copy = fopen(new_filename, "rb");
         FILE* fp_delete = fopen(filename, "wb");
         if (!fp_copy || !fp_delete) {
@@ -2598,17 +2558,18 @@ int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
         strcat(new_filename, "_delete_copy");
         fp_in = fopen(filename, "rb");
         FILE* fp_out = fopen(new_filename, "wb");
-        if (!fp_out) {
+        if (fp_out==NULL) {
                 printf("Ошибка открытия файла для резервного копирования\n");
                 free(new_filename);
+                if (fp_in!=NULL) fclose(fp_in);
                 return 1;
         }
         unsigned char currentByte = 0x00;
         while(fread(&currentByte, 1, 1, fp_in) == 1){
                 fwrite(&currentByte, 1, 1, fp_out);
         }
-        if (fp_out) fclose(fp_out);
-        if (fp_in) fclose(fp_in);
+        if (fp_out!=NULL) fclose(fp_out);
+        if (fp_in!=NULL) fclose(fp_in);
         printf("Удаление метаданных\n");
         fp_in = fopen(new_filename, "rb");
         fp_out = fopen(filename, "wb");
@@ -2633,6 +2594,7 @@ int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
                 }
                 unsigned char nextByte = 0x00;
                 fread(&nextByte, 1, 1, fp_in);
+               
                 if (nextByte != 0xfe) {
                         fwrite(&currentByte, 1, 1, fp_out);
                         fwrite(&nextByte, 1, 1, fp_out);
@@ -2658,8 +2620,8 @@ int deleteMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
                 fwrite(currentData, length+1, 1, fp_out);
                 free(currentData);
         }
-        if (fp_out) fclose(fp_out);
-        if (fp_in) fclose(fp_in);
+        if (fp_out!=NULL) fclose(fp_out);
+        if (fp_in!=NULL) fclose(fp_in);
         free(new_filename);
         return 1;
 }
@@ -2697,16 +2659,16 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
                 }
         }
         FILE* fp_in = fopen(filename, "rb");
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 printf("Ошибка открытия файла\n");
                 return 1;
         }
         unsigned char headerBytes[4] = {0};
         fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
-                int result = deleteMetadataPNG(fp_in, header, filename);
+                deleteMetadataPNG(fp_in, header, filename);
         } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
-                int result = deleteMetadataJPEG(fp_in, header, filename,argc,argv);
+                deleteMetadataJPEG(fp_in, header, filename,argc,argv);
         } else if (headerBytes[0] == 0x49 && headerBytes[1] == 0x49 && headerBytes[2] == 0x2a && headerBytes[3] == 0x00) {
                 deleteMetadataTIFF(fp_in, header, filename, argc,argv, 1);
         } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
@@ -2764,7 +2726,7 @@ int deleteMetadata(char* filename, char* header, int argc, char** argv) {
 
 */
 int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv, int isLittleEndian) {
-        if (!fp_in){
+        if (fp_in==NULL){
                 return -1;
         }
         fseek(fp_in,0,SEEK_SET);
@@ -2872,7 +2834,7 @@ int addMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int a
 }
 
 int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
-        if (!fp_in){
+        if (fp_in==NULL){
                 return -1;
         }
         fseek(fp_in,0,SEEK_SET);
@@ -2925,17 +2887,17 @@ int addMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int a
         while(fp_in && fread(&currentByte,1,1,fp_in) == 1) {
                 fwrite(&currentByte,1,1,fp_out);
         }
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 fclose(fp_in);
         }
-        if (fp_out){
+        if (fp_out!=NULL){
                 fclose(fp_out);
         }
         printf("Изменение исходного файла: %s\n", filename);
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename,"wb");
         free(new_filename);
-        while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
+        while (fp_in!=NULL && fread(&currentByte,1,1,fp_in) == 1) {
                 if (currentByte == 0xff) {
                         unsigned char nextByte = 0x00;
                         int result = fread(&nextByte,1,1,fp_in);
@@ -3128,7 +3090,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         int filterChanged = 1;
         int interlaceChanged = 1;
         if (width>=0 || height>=0) {
-                char response;
+                char response = 0x00;
                 while (response!='Y' && response!='y' && response!='N' && response!='n') {
                         printf("Изменение размеров изображения небезопасно! Продолжить?(Y/n): ");
                         scanf(" %c", &response);
@@ -3150,7 +3112,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         }
         unsigned char oldHeader[17] = {0};
         int headerFound = 0;
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x49) {
@@ -3239,7 +3201,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
         
         int physFound = -1;
         unsigned char oldPhys[13] = {0};
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x70) {
@@ -3416,6 +3378,7 @@ int addMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int ar
                 free(new_filename);
                 new_filename = NULL;
         }
+        return 1;
 }
 
 int addMetadataGIF(FILE* fp_in, char* filename, char* header, char* data, int argc, char** argv) {
@@ -3432,13 +3395,13 @@ int addMetadataGIF(FILE* fp_in, char* filename, char* header, char* data, int ar
         FILE* fp_out = fopen(new_filename, "wb");
         fp_in = fopen(filename, "rb");
         unsigned char currentByte = 0x00;
-        while (fp_in && fread(&currentByte,1,1,fp_in)) {
+        while (fp_in!=NULL && fread(&currentByte,1,1,fp_in)) {
                 fwrite(&currentByte,1,1,fp_out);
         }
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 fclose(fp_in);
         }
-        if (fp_out) fclose(fp_out);
+        if (fp_out!=NULL) fclose(fp_out);
         printf("Копирование исходного файла: Успешно\n\n");
         fp_in = fopen(new_filename, "rb");
         fp_out = fopen(filename, "wb");
@@ -3468,13 +3431,13 @@ int addMetadataGIF(FILE* fp_in, char* filename, char* header, char* data, int ar
                 fwrite(&nullByte, 1, 1, fp_out);
                 printf("Добавление новых метаданных: Успешно\n\n");
         }
-        while (fp_in && fread(&currentByte,1,1,fp_in)) {
+        while (fp_in!=NULL && fread(&currentByte,1,1,fp_in)) {
                 fwrite(&currentByte,1,1,fp_out);
         }
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 fclose(fp_in);
         }
-        if (fp_out) fclose(fp_out);
+        if (fp_out!=NULL) fclose(fp_out);
         free(new_filename);
         return 1;
 }
@@ -3512,16 +3475,16 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
                 }
         }
         FILE* fp_in = fopen(filename, "rb");
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 printf("Ошибка открытия файла\n");
                 return 1;
         }
         unsigned char headerBytes[4] = {0};
         fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
-                int result = addMetadataPNG(fp_in, header, data, filename, argc, argv);
+                addMetadataPNG(fp_in, header, data, filename, argc, argv);
         } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
-                int result = addMetadataJPEG(fp_in,header,data, filename,argc,argv);
+                addMetadataJPEG(fp_in,header,data, filename,argc,argv);
         } else if (headerBytes[0] == 0x49 && headerBytes[1] == 0x49 && headerBytes[2] == 0x2a && headerBytes[3] == 0x00) {
                 addMetadataTIFF(fp_in, header, data, filename, argc,argv, 1);
         } else if (headerBytes[0] == 0x4d && headerBytes[1] == 0x4d && headerBytes[2] == 0x00 && headerBytes[3] == 0x2a) {
@@ -3578,7 +3541,7 @@ int addMetadata(char* filename, char* header, char* data, int argc, char** argv)
 
 */
 int updateMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv, int isLittleEndian) {
-        if (!fp_in){
+        if (fp_in==NULL){
                 return -1;
         }
         fseek(fp_in,0,SEEK_SET);
@@ -3697,7 +3660,7 @@ int updateMetadataTIFF(FILE* fp_in, char* header, char* data, char* filename, in
 }
 
 int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, int argc, char** argv) {
-        if (!fp_in){
+        if (fp_in==NULL){
                 return -1;
         }
         fseek(fp_in,0,SEEK_SET);
@@ -3742,17 +3705,17 @@ int updateMetadataJPEG(FILE* fp_in, char* header, char* data, char* filename, in
         while(fp_in && fread(&currentByte,1,1,fp_in) == 1) {
                 fwrite(&currentByte,1,1,fp_out);
         }
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 fclose(fp_in);
         }
-        if (fp_out){
+        if (fp_out!=NULL){
                 fclose(fp_out);
         }
         printf("Изменение исходного файла: %s\n", filename);
         fp_in = fopen(new_filename,"rb");
         fp_out = fopen(filename,"wb");
         free(new_filename);
-        while (fp_in && fread(&currentByte,1,1,fp_in) == 1) {
+        while (fp_in!=NULL && fread(&currentByte,1,1,fp_in) == 1) {
                 if (currentByte == 0xff) {
                         unsigned char nextByte = 0x00;
                         int result = fread(&nextByte,1,1,fp_in);
@@ -3885,7 +3848,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         int filterChanged = 1;
         int interlaceChanged = 1;
         if (width>=0 || height>=0) {
-                char response;
+                char response = 0x00;
                 while (response!='Y' && response!='y' && response!='N' && response!='n') {
                         printf("Изменение размеров изображения небезопасно! Продолжить?(Y/n): ");
                         scanf(" %c", &response);
@@ -3907,7 +3870,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         }
         unsigned char oldHeader[17] = {0};
         int headerFound = 0;
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x49) {
@@ -3997,7 +3960,7 @@ int updateMetadataPNG(FILE* fp_in, char* header, char* data, char* filename, int
         
         int physFound = -1;
         unsigned char oldPhys[13] = {0};
-        if (fp_in) {
+        if (fp_in!=NULL) {
                 unsigned char currentByte = 0x00;
                 while (fread(&currentByte,1,1,fp_in) == 1){
                         if (currentByte == 0x70) {
@@ -4217,6 +4180,7 @@ int updateMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
         if (fp_out == NULL) {
                 printf("Ошибка открытия файла %s_update_copy\n", filename);
                 free(new_filename);
+                if (fp_in!=NULL) fclose(fp_in);
                 return 1;
         }
         unsigned char currentByte = 0x00;
@@ -4234,6 +4198,7 @@ int updateMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
         unsigned char* oldData = NULL;
         unsigned char* newData = NULL;
         int delay = 0;
+        
         for (int i = 0; i < argc; i++){
                 if (i+1 >= argc){
                         continue;
@@ -4268,6 +4233,8 @@ int updateMetadataGIF(FILE* fp_in, char* header,char* filename,int argc,char** a
                 }
                 if (nextByte == 0xfe) {
                         if (found == 1) {
+                                fwrite(&currentByte, 1, 1, fp_out);
+                                fwrite(&nextByte, 1, 1, fp_out);
                                 continue;
                         }
                         u_int8_t length = 0x00;
@@ -4356,14 +4323,14 @@ int updateMetadata(char* filename, char* header, char* data, int argc, char** ar
                 }
         }
         FILE* fp_in = fopen(filename, "rb");
-        if (!fp_in) {
+        if (fp_in==NULL) {
                 printf("Ошибка открытия файла\n");
                 return 1;
         }
         unsigned char headerBytes[4] = {0};
         fread(headerBytes, 1, 4, fp_in);
         if (headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4e && headerBytes[3] == 0x47) {
-                int result = updateMetadataPNG(fp_in, header, data, filename, argc, argv);
+                updateMetadataPNG(fp_in, header, data, filename, argc, argv);
         } else if (headerBytes[0] == 0xff && headerBytes[1] == 0xd8 && headerBytes[2] == 0xff && headerBytes[3] == 0xe0) {
                 updateMetadataJPEG(fp_in,header,data,filename,argc, argv);
         } else if (headerBytes[0] == 0x49 && headerBytes[1] == 0x49 && headerBytes[2] == 0x2a && headerBytes[3] == 0x00) {
